@@ -61,7 +61,7 @@ CoAI 定制版是基于开源 AI 平台 Coai 的定制分支，提供了增强�
 
 1. 克隆项目：
 ```bash
-git clone [项目仓库地址]
+git clone https://github.com/tianjiangqiji/coai.git
 cd coai
 ```
 
