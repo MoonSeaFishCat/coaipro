@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -139,6 +140,16 @@ func (u *User) SetSubscriptionLevel(db *sql.DB, level int) bool {
 func CountSubscriptionPrize(level int, month int) float32 {
 	plan := channel.PlanInstance.GetPlan(level)
 	base := plan.Price * float32(month)
+	
+	// 首先检查后台设置的折扣
+	if plan.Discounts != nil {
+		monthStr := strconv.Itoa(month)
+		if discount, exists := plan.Discounts[monthStr]; exists {
+			return base * discount
+		}
+	}
+	
+	// 如果没有后台设置的折扣，使用默认折扣规则
 	if month >= 36 {
 		return base * 0.7
 	} else if month >= 12 {

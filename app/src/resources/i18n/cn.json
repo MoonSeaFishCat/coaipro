@@ -1462,6 +1462,8 @@
     "chat-full": "开始对话",
     "model": "模型",
     "model-full": "探索模型",
+    "drawing": "绘图",
+    "drawing-full": "绘图工作台",
     "preset": "预设",
     "preset-full": "预设市场",
     "wallet": "钱包",
@@ -1474,6 +1476,17 @@
     "account-full": "账户管理",
     "admin": "后台",
     "admin-full": "后台管理"
+  },
+  "drawing": {
+    "modelSelectorTitle": "绘图模型",
+    "modelPlaceholder": "请选择绘图模型",
+    "historyButton": "历史记录",
+    "modelEmptyTitle": "暂无绘图模型",
+    "modelEmptyDesc": "请在后台为模型添加“绘图”标签后重试。",
+    "previewTitle": "{{name}} 即将开放",
+    "previewDesc": "此区域会随着所选模型而变化，敬请期待更多配置能力。",
+    "mainTitle": "绘图任务即将上线",
+    "mainDesc": "该页面将用于展示绘图任务的生成进度和结果，当前版本暂未开放。"
   },
   "account": {
     "title": "账号管理",

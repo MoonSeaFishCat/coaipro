@@ -19,6 +19,7 @@ import Index from "@/routes/Index.tsx";
 const Model = lazyFactor(() => import("@/routes/Model.tsx"));
 const Wallet = lazyFactor(() => import("@/routes/Wallet.tsx"));
 const Account = lazyFactor(() => import("@/routes/Account.tsx"));
+const Drawing = lazyFactor(() => import("@/routes/Drawing.tsx"));
 
 const Generation = lazyFactor(() => import("@/routes/Generation.tsx"));
 const Sharing = lazyFactor(() => import("@/routes/Sharing.tsx"));
@@ -59,6 +60,15 @@ const router = createBrowserRouter([
         id: "home",
         path: "",
         element: <Home />,
+      },
+      {
+        id: "drawing",
+        path: "drawing",
+        element: (
+          <Suspense>
+            <Drawing />
+          </Suspense>
+        ),
       },
       {
         id: "model",

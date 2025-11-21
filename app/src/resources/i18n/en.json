@@ -1324,6 +1324,7 @@
   "bar": {
     "chat": "Chat",
     "model": "Model",
+    "drawing": "Drawing",
     "wallet": "Wallet",
     "log": "Log",
     "admin": "Admin",
@@ -1331,6 +1332,7 @@
     "account": "Accounts",
     "chat-full": "Chat",
     "model-full": "Model",
+    "drawing-full": "Drawing workspace",
     "preset-full": "Discover",
     "wallet-full": "Wallet",
     "log-full": "Usage",
@@ -1338,6 +1340,17 @@
     "admin-full": "Dashboard",
     "key": "key",
     "key-full": "API"
+  },
+  "drawing": {
+    "modelSelectorTitle": "Image models",
+    "modelPlaceholder": "Select an image model",
+    "historyButton": "History",
+    "modelEmptyTitle": "No drawing models",
+    "modelEmptyDesc": "Please add the “image-generation” tag to at least one model from the admin panel.",
+    "previewTitle": "{{name}} is coming soon",
+    "previewDesc": "More configuration details will surface here once the drawing workspace is available.",
+    "mainTitle": "Drawing progress preview",
+    "mainDesc": "This area will display generation progress and final images in a future update."
   },
   "notify": "Notice",
   "new-notify": "New notification",

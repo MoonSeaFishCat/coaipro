@@ -708,11 +708,13 @@ function PlanConfig() {
                             if (checked) {
                               let discountPercent = 0;
                               if (month >= 36) {
-                                discountPercent = 30;
+                                discountPercent = 15;
                               } else if (month >= 12) {
-                                discountPercent = 20;
+                                discountPercent = 7;
                               } else if (month >= 6) {
-                                discountPercent = 10;
+                                discountPercent = 5;
+                              } else if (month === 3) {
+                                discountPercent = 2; // 为3个月设置默认5%折扣
                               }
                               
                               const discountFactor = 1 - (discountPercent / 100);
