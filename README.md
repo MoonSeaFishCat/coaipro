@@ -84,11 +84,46 @@ cp config.example.yaml config.yaml
 ```bash
 go build -mod=vendor -v -o chatnio
 ```
-
+或(Windows可执行文件)
+```bash
+go build -mod=vendor -v -o chatnio.exe
+```
 6. 启动服务：
 ```bash
 ./chatnio
 ```
+
+### 前端构建（位于 `app/` 目录）
+
+后端默认从 `./app/dist` 目录加载静态前端文件，因此在生产环境中需要先构建前端，将构建产物放到 `app/dist`，然后再启动后端服务。
+
+环境要求：
+- Node.js 18 或更高（项目使用 TypeScript 和 Vite）
+- 推荐使用 pnpm（速度更快），也可以使用 npm 或 yarn
+
+常用命令（在仓库根目录或直接进入 `app/` 目录）：
+
+开发（热重载）:
+```bash
+cd app
+npm install
+npm run dev
+```
+
+预览/构建（生产）：
+```bash
+cd app
+pnpm install          # 第一次需要安装依赖
+pnpm build            # 等同于 npm run build
+# 构建成功后会在 app/dist 目录生成静态文件，后端会直接读取该目录并对外提供服务
+```
+
+提示与注意事项：
+- 构建命令使用了 TypeScript 编译（tsc）和 Vite，可能会占用较多内存。README 中的构建脚本已设置 NODE_OPTIONS=--max_old_space_size=4096 来允许 4GB 内存，如遇到构建失败可尝试增加该值或使用 `fast-build` 简化构建命令：
+   - `pnpm run fast-build`（或 `npm run fast-build`）
+- 后端启动前请确认 `app/dist` 已存在且包含 `index.html`，否则后端会打印提示并无法提供前端页面（参见 `utils/config.go` 中对静态目录的读取）。
+- 若希望将前端单独部署到 CDN/静态服务器，请将 `app/dist` 的内容上传至静态托管，然后在 `config.yaml` 中调整后端或前端的 API 地址，使二者能正常通信。
+
 
 ## 部署说明
 

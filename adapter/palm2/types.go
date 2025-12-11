@@ -24,10 +24,17 @@ type PalmChatResponse struct {
 	Candidates []PalmMessage `json:"candidates"`
 }
 
+// GeminiThinkingConfig is the thinking configuration for Gemini models
+type GeminiThinkingConfig struct {
+	ThinkingBudget  int  `json:"thinkingBudget"`
+	IncludeThoughts bool `json:"includeThoughts"`
+}
+
 // GeminiChatBody is the native http request body for gemini
 type GeminiChatBody struct {
-	Contents         []GeminiContent `json:"contents"`
-	GenerationConfig GeminiConfig    `json:"generationConfig"`
+	Contents         []GeminiContent       `json:"contents"`
+	GenerationConfig GeminiConfig          `json:"generationConfig"`
+	ThinkingConfig   *GeminiThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type GeminiConfig struct {

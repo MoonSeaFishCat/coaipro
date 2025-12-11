@@ -47,13 +47,16 @@ func (c *ChatInstance) GetChatBody(props *adaptercommon.ChatProps, stream bool) 
 	messages := formatMessages(props)
 
 	extraBody := props.ExtraBody
-	shouldApplyReasoning := props.Think != nil && *props.Think
+	// GPT 系列模型（包含 "gpt" 的模型 ID）的思考参数
+	shouldApplyReasoning := props.Think != nil && *props.Think && strings.Contains(strings.ToLower(props.Model), "gpt")
 	if shouldApplyReasoning {
 		if extraBody == nil {
 			extraBody = map[string]interface{}{}
 		}
-		if _, exists := extraBody["reasoning_effort"]; !exists {
-			extraBody["reasoning_effort"] = "medium"
+		if _, exists := extraBody["reasoning"]; !exists {
+			extraBody["reasoning"] = map[string]interface{}{
+				"effort": "high",
+			}
 		}
 	}
 

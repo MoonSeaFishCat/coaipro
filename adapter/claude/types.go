@@ -19,15 +19,22 @@ type MessageContent struct {
 	Source *MessageImage `json:"source,omitempty"`
 }
 
+// ClaudeThinking is the thinking configuration for Claude models
+type ClaudeThinking struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens"`
+}
+
 type ChatBody struct {
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens"`
-	Model       string    `json:"model"`
-	System      string    `json:"system"`
-	Stream      bool      `json:"stream"`
-	Temperature *float32  `json:"temperature,omitempty"`
-	TopP        *float32  `json:"top_p,omitempty"`
-	TopK        *int      `json:"top_k,omitempty"`
+	Messages    []Message       `json:"messages"`
+	MaxTokens   int             `json:"max_tokens"`
+	Model       string          `json:"model"`
+	System      string          `json:"system"`
+	Stream      bool            `json:"stream"`
+	Temperature *float32        `json:"temperature,omitempty"`
+	TopP        *float32        `json:"top_p,omitempty"`
+	TopK        *int            `json:"top_k,omitempty"`
+	Thinking    *ClaudeThinking `json:"thinking,omitempty"`
 }
 
 type ChatStreamResponse struct {

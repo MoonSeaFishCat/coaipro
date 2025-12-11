@@ -185,6 +185,13 @@ const chatSlice = createSlice({
       const conversation = state.conversations[id];
       if (!conversation || conversation.messages.length === 0) return;
 
+      // 删除最后一条 assistant 消息（如果存在）
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      if (lastMessage.role === AssistantRole) {
+        conversation.messages.pop();
+      }
+
+      // 添加新的空 assistant 消息
       conversation.messages.push({
         role: AssistantRole,
         content: "",

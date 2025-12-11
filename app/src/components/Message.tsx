@@ -286,25 +286,34 @@ function MessageContent({
 
   // parse think content
   const parseThinkContent = (content: string) => {
-    // check if there is a start tag
+    // 检查是否以 <think> 开头（思考内容必须在消息开头）
+    const trimmedContent = content.trimStart();
+    if (!trimmedContent.startsWith('<think>')) {
+      return null;
+    }
 
-    const startMatch = content.match(/<think>\n?(.*?)(?:<\/think>|$)/s);
-    if (startMatch) {
-      const thinkContent = startMatch[1];
-      // if there is an end tag, remove the whole matching part;
-      // if not, keep the remaining content
-      const hasEndTag = content.includes('</think>');
-      const restContent = hasEndTag ? 
-        content.replace(startMatch[0], "").trim() :
-        content.substring(content.indexOf('<think>') + 7).trim();
-      
+    const startIndex = content.indexOf('<think>');
+    const endIndex = content.indexOf('</think>');
+    const hasEndTag = endIndex !== -1;
+
+    if (hasEndTag) {
+      // 有结束标签：提取思考内容和正文内容
+      const thinkContent = content.substring(startIndex + 7, endIndex).trim();
+      const restContent = content.substring(endIndex + 8).trim();
       return {
         thinkContent,
-        restContent: hasEndTag ? restContent : '',
-        isComplete: hasEndTag
+        restContent,
+        isComplete: true
+      };
+    } else {
+      // 没有结束标签（流式传输中）：所有内容都是思考内容
+      const thinkContent = content.substring(startIndex + 7).trim();
+      return {
+        thinkContent,
+        restContent: '',
+        isComplete: false
       };
     }
-    return null;
   };
 
   const parsedContent = message.content.length ? parseThinkContent(message.content) : null;

@@ -58,6 +58,15 @@ func (c *ChatInstance) GetPalm2ChatBody(props *adaptercommon.ChatProps) *PalmCha
 }
 
 func (c *ChatInstance) GetGeminiChatBody(props *adaptercommon.ChatProps) *GeminiChatBody {
+	// Gemini 系列模型（包含 "gemini" 的模型 ID）的思考参数
+	var thinkingConfig *GeminiThinkingConfig
+	if props.Think != nil && *props.Think && strings.Contains(strings.ToLower(props.Model), "gemini") {
+		thinkingConfig = &GeminiThinkingConfig{
+			ThinkingBudget:  -1, // -1 表示无限制
+			IncludeThoughts: true,
+		}
+	}
+
 	return &GeminiChatBody{
 		Contents: c.GetGeminiContents(props.Model, props.Message),
 		GenerationConfig: GeminiConfig{
@@ -66,6 +75,7 @@ func (c *ChatInstance) GetGeminiChatBody(props *adaptercommon.ChatProps) *Gemini
 			TopP:            props.TopP,
 			TopK:            props.TopK,
 		},
+		ThinkingConfig: thinkingConfig,
 	}
 }
 

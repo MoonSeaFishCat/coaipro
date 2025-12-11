@@ -6,6 +6,7 @@ import (
 	"chat/utils"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 const defaultTokens = 2500
@@ -136,6 +137,16 @@ func (c *ChatInstance) GetSystemPrompt(props *adaptercommon.ChatProps) (prompt s
 
 func (c *ChatInstance) GetChatBody(props *adaptercommon.ChatProps, stream bool) *ChatBody {
 	messages := c.GetMessages(props)
+
+	// Claude 系列模型（包含 "claude" 的模型 ID）的思考参数
+	var thinking *ClaudeThinking
+	if props.Think != nil && *props.Think && strings.Contains(strings.ToLower(props.Model), "claude") {
+		thinking = &ClaudeThinking{
+			Type:         "enabled",
+			BudgetTokens: 2048,
+		}
+	}
+
 	return &ChatBody{
 		Messages:    messages,
 		MaxTokens:   c.GetTokens(props),
@@ -145,6 +156,7 @@ func (c *ChatInstance) GetChatBody(props *adaptercommon.ChatProps, stream bool) 
 		Temperature: props.Temperature,
 		TopP:        props.TopP,
 		TopK:        props.TopK,
+		Thinking:    thinking,
 	}
 }
 
