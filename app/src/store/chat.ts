@@ -27,12 +27,14 @@ import {
   loadConversation,
   getConversationList,
 } from "@/api/history.ts";
+import { getConversationSession } from "@/api/session.ts";
 import { CustomMask, Mask } from "@/masks/types.ts";
 import { listMasks } from "@/api/mask.ts";
 import { useDispatch, useSelector } from "react-redux";
 import { useMemo } from "react";
 import { ChatProps, ConnectionStack, StreamMessage } from "@/api/connection.ts";
 import { useTranslation } from "react-i18next";
+import { startSession } from "@/store/session.ts";
 import {
   contextSelector,
   frequencyPenaltySelector,
@@ -167,7 +169,11 @@ const chatSlice = createSlice({
         });
 
       const instance = conversation.messages[conversation.messages.length - 1];
-      if (message.message.length > 0) instance.content += message.message;
+      if (message.replace) {
+        instance.content = message.message;
+      } else if (message.message.length > 0) {
+        instance.content += message.message;
+      }
       if (message.keyword) instance.keyword = message.keyword;
       if (message.quota) instance.quota = message.quota;
       if (message.end) instance.end = message.end;
@@ -422,7 +428,7 @@ export function useConversation(): ConversationSerialized | undefined {
 }
 
 export function useConversationActions() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const conversations = useSelector(selectConversations);
   const current = useSelector(selectCurrent);
   const mask = useSelector(selectMaskItem);
@@ -431,18 +437,57 @@ export function useConversationActions() {
     toggle: async (id: number) => {
       const conversation = conversations[id];
       setNumberMemory("history_conversation", id);
+
+      let loaded: ConversationSerialized | undefined = undefined;
       if (!conversation) {
         const data = await loadConversation(id);
         const props: ConversationSerialized = {
           model: data.model,
           messages: data.message,
         };
+        loaded = props;
         dispatch(
           importConversation({
             conversation: props,
             id,
           }),
         );
+      }
+
+
+      // refresh/enter conversation: if there is an active session, resume streaming
+      try {
+        const resp = await getConversationSession(id);
+        const session = resp.status ? resp.data : undefined;
+        if (
+          session &&
+          (session.status === "pending" || session.status === "processing") &&
+          session.session_id
+        ) {
+          const latestConversation = conversations[id] ?? loaded;
+          const latestMessage = latestConversation?.messages?.[
+            (latestConversation?.messages?.length ?? 0) - 1
+          ];
+
+          const needPlaceholder =
+            !latestMessage ||
+            latestMessage.role !== AssistantRole ||
+            latestMessage.end === true;
+
+          if (needPlaceholder) {
+            dispatch(
+              createMessage({
+                id,
+                role: AssistantRole,
+                content: "",
+              }),
+            );
+          }
+
+          dispatch(startSession(session.session_id, id, session.model));
+        }
+      } catch {
+        // ignore resume errors
       }
 
       if (current === -1 && conversations[-1].messages.length === 0) {
@@ -633,6 +678,11 @@ export function useMessageActions() {
         setNumberMemory("history_conversation", target);
         stack.raiseConnection(target);
         await refresh();
+      }
+
+      // 处理会话ID，如果消息包含session_id，则创建或更新会话
+      if (message.session_id && message.conversation) {
+        dispatch(startSession(message.session_id, message.conversation, model) as any);
       }
     },
   };

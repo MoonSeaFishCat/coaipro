@@ -9,6 +9,7 @@ import {
   selectModel,
   selectSupportModels,
   useMessageActions,
+  useConversationActions,
   useMessages,
   useThinkingSettings,
   useWorking,
@@ -16,7 +17,7 @@ import {
 import { formatMessage } from "@/utils/processor.ts";
 import ChatInterface from "@/components/home/ChatInterface.tsx";
 import { clearHistoryState, getQueryParam } from "@/utils/path.ts";
-import { forgetMemory, popMemory } from "@/utils/memory.ts";
+import { forgetMemory, getNumberMemory, popMemory } from "@/utils/memory.ts";
 import { alignSelector } from "@/store/settings.ts";
 import { FileArray } from "@/api/file.ts";
 import {
@@ -64,6 +65,7 @@ function fileReducer(state: FileArray, action: Record<string, any>): FileArray {
 function ChatWrapper() {
   const { t } = useTranslation();
   const { send: sendAction } = useMessageActions();
+  const { refresh, toggle } = useConversationActions();
   const process = listenMessageEvent();
   const [files, fileDispatch] = useReducer(fileReducer, []);
   const [input, setInput] = useState("");
@@ -141,6 +143,20 @@ function ChatWrapper() {
     const query = getQueryParam("q").trim();
     if (query.length > 0) processSend(query).then();
     clearHistoryState();
+
+    // auto open last conversation after refresh
+    (async () => {
+      const store = getNumberMemory("history_conversation", -1);
+      if (store === -1) return;
+      if (current === store) return;
+      try {
+        const list = await refresh();
+        if (!list.map((item) => item.id).includes(store)) return;
+        await toggle(store);
+      } catch {
+        // ignore
+      }
+    })();
   }, [init]);
 
   useEffect(() => {

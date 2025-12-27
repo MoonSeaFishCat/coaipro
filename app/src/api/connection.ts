@@ -9,10 +9,12 @@ export const maxConnection = 5;
 
 export type StreamMessage = {
   conversation?: number;
+  session_id?: string;
   keyword?: string;
   quota?: number;
   message: string;
   end: boolean;
+  replace?: boolean;
   plan?: boolean;
   title?: string;
   search_query?: {
@@ -77,6 +79,7 @@ export class Connection {
   protected connection?: WebSocket;
   protected callback?: StreamCallback;
   protected stack?: Record<string, any>;
+  protected heartbeatInterval?: ReturnType<typeof setInterval>;
   public id: number;
   public state: boolean;
 
@@ -96,9 +99,11 @@ export class Connection {
         token: getMemory(tokenField) || "anonymous",
         id: this.id,
       });
+      this.startHeartbeat();
     };
     this.connection.onclose = (event) => {
       this.state = false;
+      this.stopHeartbeat();
 
       this.stack = {
         error: "websocket connection failed",
@@ -201,7 +206,29 @@ export class Connection {
 
   public close(): void {
     if (!this.connection) return;
+    this.stopHeartbeat();
     this.connection.close();
+  }
+
+  protected startHeartbeat(): void {
+    this.stopHeartbeat();
+    // 每30秒发送一次心跳，保持连接活跃
+    this.heartbeatInterval = setInterval(() => {
+      if (this.state && this.connection) {
+        try {
+          this.connection.send(JSON.stringify({ type: "ping" }));
+        } catch (e) {
+          console.debug(`[connection] heartbeat failed: ${getErrorMessage(e)}`);
+        }
+      }
+    }, 30000);
+  }
+
+  protected stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+    }
   }
 
   public setCallback(callback?: StreamCallback): void {
@@ -230,6 +257,7 @@ export class Connection {
 export class ConnectionStack {
   protected connections: Connection[];
   protected callback?: StreamCallback;
+  protected sessionCallbacks: Map<string, (message: StreamMessage) => void> = new Map();
 
   public constructor(callback?: StreamCallback) {
     this.connections = [];
@@ -329,6 +357,29 @@ export class ConnectionStack {
   }
 
   public triggerCallback(id: number, message: StreamMessage): void {
+    // 如果消息包含session_id，尝试调用对应的会话回调
+    if (message.session_id && this.sessionCallbacks.has(message.session_id)) {
+      const sessionCallback = this.sessionCallbacks.get(message.session_id);
+      sessionCallback && sessionCallback(message);
+    }
+    
     this.callback && this.callback(id, message);
+  }
+
+  // 会话管理方法
+  public registerSessionCallback(sessionId: string, callback: (message: StreamMessage) => void): void {
+    this.sessionCallbacks.set(sessionId, callback);
+  }
+
+  public unregisterSessionCallback(sessionId: string): void {
+    this.sessionCallbacks.delete(sessionId);
+  }
+
+  public hasSessionCallback(sessionId: string): boolean {
+    return this.sessionCallbacks.has(sessionId);
+  }
+
+  public clearSessionCallbacks(): void {
+    this.sessionCallbacks.clear();
   }
 }

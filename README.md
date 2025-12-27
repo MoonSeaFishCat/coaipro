@@ -121,7 +121,6 @@ pnpm build            # 等同于 npm run build
 提示与注意事项：
 - 构建命令使用了 TypeScript 编译（tsc）和 Vite，可能会占用较多内存。README 中的构建脚本已设置 NODE_OPTIONS=--max_old_space_size=4096 来允许 4GB 内存，如遇到构建失败可尝试增加该值或使用 `fast-build` 简化构建命令：
    - `pnpm run fast-build`（或 `npm run fast-build`）
-- 后端启动前请确认 `app/dist` 已存在且包含 `index.html`，否则后端会打印提示并无法提供前端页面（参见 `utils/config.go` 中对静态目录的读取）。
 - 若希望将前端单独部署到 CDN/静态服务器，请将 `app/dist` 的内容上传至静态托管，然后在 `config.yaml` 中调整后端或前端的 API 地址，使二者能正常通信。
 
 

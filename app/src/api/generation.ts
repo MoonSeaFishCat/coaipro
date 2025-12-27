@@ -27,6 +27,7 @@ export class GenerationManager {
   protected processing: boolean;
   protected connection: WebSocket | null;
   protected message: string;
+  protected heartbeatInterval?: ReturnType<typeof setInterval>;
   protected onProcessingChange?: (processing: boolean) => void;
   protected onMessage?: (message: MessageEvent) => void;
   protected onError?: (error: string) => void;
@@ -63,11 +64,33 @@ export class GenerationManager {
   protected setProcessing(processing: boolean): boolean {
     this.processing = processing;
     if (!processing) {
+      this.stopHeartbeat();
       this.connection = null;
       this.message = "";
     }
     this.onProcessingChange?.(processing);
     return processing;
+  }
+
+  protected startHeartbeat(): void {
+    this.stopHeartbeat();
+    // 每30秒发送一次心跳，保持连接活跃
+    this.heartbeatInterval = setInterval(() => {
+      if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+        try {
+          this.connection.send(JSON.stringify({ type: "ping" }));
+        } catch (e) {
+          console.debug(`[generation] heartbeat failed`);
+        }
+      }
+    }, 30000);
+  }
+
+  protected stopHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = undefined;
+    }
   }
 
   public getConnection(): WebSocket | null {
@@ -102,6 +125,7 @@ export class GenerationManager {
         this.connection?.send(
           JSON.stringify({ token, prompt, model } as GenerationForm),
         );
+        this.startHeartbeat();
       };
       this.connection.onmessage = (event) => {
         this.handleMessage(JSON.parse(event.data) as GenerationSegmentResponse);

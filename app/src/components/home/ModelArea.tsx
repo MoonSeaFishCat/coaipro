@@ -80,7 +80,7 @@ function formatModel(
   level: number,
   t: (key: string) => string,
 ) {
-  let badge = [];
+  let badge: Array<{variant: string; icon: JSX.Element; tooltip: string}> = [];
   if (model.free) {
     badge.push({
       variant: "default",

@@ -57,6 +57,7 @@ func main() {
 	utils.ReadConf()
 	admin.InitInstance()
 	channel.InitManager()
+	manager.InitSessionManager() // 初始化会话管理器
 
 	if cli.Run() {
 		return

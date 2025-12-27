@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ArrowRight, Megaphone } from "lucide-react";
 import Clickable from "@/components/ui/clickable";
 import Announcement from "@/components/app/Announcement";
+import SessionRecovery from "@/components/session/SessionRecovery.tsx";
 
 function Footer() {
   const auth = useSelector(selectAuthenticated);
@@ -34,6 +35,7 @@ function Footer() {
 function ChatSpace() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [sessionRecoveryComplete, setSessionRecoveryComplete] = useState(false);
 
   return (
     <motion.div
@@ -42,6 +44,12 @@ function ChatSpace() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
+      {!sessionRecoveryComplete && (
+        <SessionRecovery 
+          onRecoveryComplete={() => setSessionRecoveryComplete(true)}
+          onRecoveryFailed={() => setSessionRecoveryComplete(true)}
+        />
+      )}
       <motion.div
         className="flex flex-col space-y-1 w-full md:max-w-2xl mb-4 md:mx-auto px-6 select-none"
         initial={{ opacity: 0, y: 20 }}

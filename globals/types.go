@@ -20,6 +20,7 @@ type Chunk struct {
 
 type ChatSegmentResponse struct {
 	Conversation int64   `json:"conversation"`
+	SessionID    string  `json:"session_id,omitempty"`
 	Quota        float32 `json:"quota"`
 	Keyword      string  `json:"keyword"`
 	Message      string  `json:"message"`

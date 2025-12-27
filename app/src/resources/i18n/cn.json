@@ -25,6 +25,12 @@
   "manage": "管理",
   "invalid-token": "无效的令牌",
   "invalid-token-prompt": "请重试。",
+  "progress": {
+    "processing": "正在处理您的请求...",
+    "initializing": "正在初始化AI请求...",
+    "connecting": "正在连接AI服务...",
+    "thinking": "AI正在思考中..."
+  },
   "login-failed": "登录失败",
   "login-failed-prompt": "登录失败！原因: {{reason}}",
   "login-success": "登录成功",

@@ -12,6 +12,12 @@
   "try-again": "Try again",
   "invalid-token": "Invalid token",
   "invalid-token-prompt": "Please try again.",
+  "progress": {
+    "processing": "Processing your request...",
+    "initializing": "Initializing AI request...",
+    "connecting": "Connecting to AI service...",
+    "thinking": "AI is thinking..."
+  },
   "login-failed": "Login failed",
   "login-failed-prompt": "Login failed! Reason: {{reason}}",
   "login-success": "Login successful",

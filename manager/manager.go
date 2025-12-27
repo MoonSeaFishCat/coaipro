@@ -2,6 +2,7 @@ package manager
 
 import (
 	"chat/auth"
+	"chat/globals"
 	"chat/manager/conversation"
 	"chat/utils"
 	"fmt"
@@ -80,13 +81,31 @@ func ChatAPI(c *gin.Context) {
 
 	buf := NewConnection(conn, authenticated, hash, 10)
 	buf.Handle(func(form *conversation.FormMessage) error {
+		cache := utils.GetCacheFromContext(c)
+		
 		switch form.Type {
 		case ChatType:
 			if instance.HandleMessage(db, form) {
-				response := ChatHandler(buf, user, instance, false)
-				instance.SaveResponse(db, response)
+				// 使用持久化聊天处理器
+				if sessionID, err := PersistentChatHandler(c, buf, user, instance, false); err != nil {
+					// 如果持久化聊天失败，回退到原来的方法
+					response := ChatHandler(buf, user, instance, false)
+					instance.SaveResponse(db, response)
+				} else {
+					// 发送会话ID给客户端用于后续跟踪
+					buf.Send(globals.ChatSegmentResponse{
+						Conversation: instance.GetId(),
+						SessionID:    sessionID,
+						Message:      "正在处理您的请求...",
+						End:          false,
+					})
+				}
 			}
 		case StopType:
+			// 检查是否有活跃的持久化会话需要取消
+			if activeSession, exists := GetSessionManager(db, cache).GetConversationSession(instance.GetUserID(), instance.GetId()); exists {
+				CancelPersistentChat(activeSession.ID)
+			}
 			break
 		case ShareType:
 			instance.LoadSharing(db, form.Message)
@@ -94,8 +113,18 @@ func ChatAPI(c *gin.Context) {
 			// reset the params if set
 			instance.ApplyParam(form)
 
-			response := ChatHandler(buf, user, instance, true)
-			instance.SaveResponse(db, response)
+			// 使用持久化聊天处理器进行重启
+			if sessionID, err := PersistentChatHandler(c, buf, user, instance, true); err != nil {
+				response := ChatHandler(buf, user, instance, true)
+				instance.SaveResponse(db, response)
+			} else {
+				buf.Send(globals.ChatSegmentResponse{
+					Conversation: instance.GetId(),
+					SessionID:    sessionID,
+					Message:      "正在重新生成回答...",
+					End:          false,
+				})
+			}
 		case MaskType:
 			instance.LoadMask(form.Message)
 		case EditType:

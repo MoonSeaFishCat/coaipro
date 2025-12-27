@@ -16,5 +16,8 @@ func Register(app *gin.RouterGroup) {
 	app.POST("/v1/chat/completions", ChatRelayAPI)
 	app.POST("/v1/images/generations", ImagesRelayAPI)
 
+	// 注册会话管理API
+	RegisterSessionAPI(app)
+	
 	broadcast.Register(app)
 }

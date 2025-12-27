@@ -74,6 +74,53 @@ func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncount
 	})
 }
 
+func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncountable bool, detail *auth.SubscriptionUsageDetail, err error) {
+	quota := buffer.GetQuota()
+
+	if user == nil || quota <= 0 {
+		return
+	}
+
+	if buffer.IsEmpty() || err != nil {
+		return
+	}
+
+	var quotaCost = quota
+	var quotaChange float32
+
+	if !uncountable {
+		user.UseQuota(db, quota)
+		quotaChange = -quota
+	} else {
+		quotaCost = 0
+	}
+
+	var detailText string
+	if detail != nil {
+		name := detail.ItemName
+		if name == "" {
+			name = detail.ItemID
+		}
+		total := "∞"
+		if detail.Total >= 0 {
+			total = fmt.Sprintf("%d", detail.Total)
+		}
+		detailText = fmt.Sprintf("订阅[%s] 用量：%d/%s (+%d)", name, detail.Used, total, detail.Increment)
+	}
+
+	_ = admin.CreateUsageLog(db, &admin.UsageLog{
+		UserID:       user.GetID(db),
+		Type:         "conversation",
+		Model:        buffer.GetModel(),
+		InputTokens:  buffer.CountInputToken(),
+		OutputTokens: buffer.CountOutputToken(false),
+		QuotaCost:    quotaCost,
+		QuotaChange:  quotaChange,
+		IsPlan:       uncountable,
+		Detail:       detailText,
+	})
+}
+
 type partialChunk struct {
 	Chunk *globals.Chunk
 	End   bool

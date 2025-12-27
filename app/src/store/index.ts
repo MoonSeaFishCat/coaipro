@@ -12,6 +12,7 @@ import sharingReducer from "./sharing";
 import settingsReducer from "./settings";
 import recordReducer from "./record";
 import avatarReducer from "./avatar";
+import sessionReducer from "./session";
 
 const store = configureStore({
   reducer: {
@@ -28,6 +29,7 @@ const store = configureStore({
     settings: settingsReducer,
     record: recordReducer,
     avatar: avatarReducer,
+    session: sessionReducer,
   },
 });
 

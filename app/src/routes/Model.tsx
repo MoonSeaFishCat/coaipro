@@ -315,6 +315,7 @@ function ModelItem({
   showPricing,
   show1mPricing,
   index,
+  onDrag,
   ...props
 }: ModelProps) {
   const { t } = useTranslation();
@@ -342,9 +343,9 @@ function ModelItem({
   return (
     <motion.div
       className={cn("model-item rounded-md", className)}
-      style={style} //@ts-ignore
+      style={style}
       ref={forwardRef}
-      {...props}
+      {...(props as any)}
       onClick={() => {
         if (!auth && model.auth) {
           toast(t("login-require"), {
