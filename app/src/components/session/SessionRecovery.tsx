@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useSessionActions, selectReconnecting } from "@/store/session.ts";
-import { selectCurrent } from "@/store/chat.ts";
+import {
+  createMessage,
+  selectConversations,
+  selectCurrent,
+  useConversationActions,
+} from "@/store/chat.ts";
+import { AssistantRole } from "@/api/types.tsx";
 import { getMemory, getNumberMemory } from "@/utils/memory.ts";
 import { Loader2, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 
@@ -18,9 +24,12 @@ const SessionRecovery: React.FC<SessionRecoveryProps> = ({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [showRecoveryUI, setShowRecoveryUI] = useState(false);
   
+  const dispatch = useDispatch();
   const sessionActions = useSessionActions();
+  const { toggle } = useConversationActions();
   const isReconnecting = useSelector(selectReconnecting);
   const currentConversationId = useSelector(selectCurrent);
+  const conversations = useSelector(selectConversations);
 
   useEffect(() => {
     checkAndRecoverSession();
@@ -50,6 +59,29 @@ const SessionRecovery: React.FC<SessionRecoveryProps> = ({
         setShowRecoveryUI(false);
         onRecoveryComplete?.();
         return;
+      }
+
+      // 如果当前还没选中对话（刷新初期经常是 -1），先自动打开正在会话中的对话
+      if (currentConversationId === -1 && storedConversationId !== -1) {
+        try {
+          await toggle(storedConversationId);
+        } catch {
+          // ignore
+        }
+
+        // 确保有一个 assistant 占位消息承接流式输出
+        const conv = conversations[storedConversationId];
+        const last = conv?.messages?.[conv.messages.length - 1];
+        const needPlaceholder = !last || last.role !== AssistantRole || last.end === true;
+        if (needPlaceholder) {
+          dispatch(
+            createMessage({
+              id: storedConversationId,
+              role: AssistantRole,
+              content: "",
+            }),
+          );
+        }
       }
 
       // 如果当前对话有活跃会话，检查是否需要恢复

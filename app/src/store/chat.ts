@@ -66,6 +66,7 @@ type initialStateType = {
   web: boolean;
   think: boolean;
   current: number;
+  loading_conversation: number;
   model_list: string[];
   market: boolean;
   mask_item: Mask | null;
@@ -102,6 +103,7 @@ export function getModelList(
 }
 
 export const stack = new ConnectionStack();
+let toggleAbortController: AbortController | null = null;
 const offline = loadPreferenceModels(getOfflineModels());
 const chatSlice = createSlice({
   name: "chat",
@@ -114,6 +116,7 @@ const chatSlice = createSlice({
     web: getBooleanMemory("web", false),
     think: getBooleanMemory("think", true),
     current: -1,
+    loading_conversation: -1,
     model: getModel(offline, getMemory("model")),
     model_list: getModelList(
       offline,
@@ -221,6 +224,9 @@ const chatSlice = createSlice({
       if (!conversation || conversation.messages.length === 0) return;
 
       conversation.messages[conversation.messages.length - 1].end = true;
+    },
+    setLoadingConversation: (state, action) => {
+      state.loading_conversation = action.payload as number;
     },
     raiseConversation: (state, action) => {
       // raise conversation `-1` to target id
@@ -377,6 +383,7 @@ export const {
   setHistory,
   renameHistory,
   setCurrent,
+  setLoadingConversation,
   setModel,
   setWeb,
   setThink,
@@ -411,6 +418,8 @@ export const selectModel = (state: RootState): string => state.chat.model;
 export const selectWeb = (state: RootState): boolean => state.chat.web;
 export const selectThink = (state: RootState): boolean => state.chat.think;
 export const selectCurrent = (state: RootState): number => state.chat.current;
+export const selectLoadingConversation = (state: RootState): number =>
+  (state.chat as any).loading_conversation ?? -1;
 export const selectModelList = (state: RootState): string[] =>
   state.chat.model_list;
 export const selectCustomMasks = (state: RootState): CustomMask[] =>
@@ -432,28 +441,59 @@ export function useConversationActions() {
   const conversations = useSelector(selectConversations);
   const current = useSelector(selectCurrent);
   const mask = useSelector(selectMaskItem);
+  const loadingConversation = useSelector(selectLoadingConversation);
 
   return {
+    cancelLoading: () => {
+      toggleAbortController?.abort();
+      toggleAbortController = null;
+      dispatch(setLoadingConversation(-1));
+    },
     toggle: async (id: number) => {
+      if (loadingConversation !== -1 && loadingConversation !== id) return;
+
       const conversation = conversations[id];
       setNumberMemory("history_conversation", id);
 
       let loaded: ConversationSerialized | undefined = undefined;
       if (!conversation) {
-        const data = await loadConversation(id);
-        const props: ConversationSerialized = {
-          model: data.model,
-          messages: data.message,
-        };
-        loaded = props;
-        dispatch(
-          importConversation({
-            conversation: props,
-            id,
-          }),
-        );
-      }
+        dispatch(setLoadingConversation(id));
+        toggleAbortController?.abort();
+        const controller = new AbortController();
+        toggleAbortController = controller;
 
+        let cancelled = false;
+        try {
+          const data = await loadConversation(id, controller.signal);
+          const props: ConversationSerialized = {
+            model: data.model,
+            messages: data.message,
+          };
+          loaded = props;
+          dispatch(
+            importConversation({
+              conversation: props,
+              id,
+            }),
+          );
+        } catch (e: any) {
+          if (
+            controller.signal.aborted ||
+            e?.code === "ERR_CANCELED" ||
+            e?.name === "CanceledError" ||
+            e?.name === "AbortError"
+          ) {
+            cancelled = true;
+          }
+        } finally {
+          if (toggleAbortController === controller) {
+            toggleAbortController = null;
+          }
+          dispatch(setLoadingConversation(-1));
+        }
+
+        if (cancelled) return;
+      }
 
       // refresh/enter conversation: if there is an active session, resume streaming
       try {

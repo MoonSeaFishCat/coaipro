@@ -19,10 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx";
 import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { ConversationInstance } from "@/api/types.tsx";
 import { useState } from "react";
-import { useConversationActions } from "@/store/chat.ts";
+import { selectLoadingConversation, useConversationActions } from "@/store/chat.ts";
 import { cn } from "@/components/ui/lib/utils.ts";
 import PopupDialog, { popupTypes } from "@/components/PopupDialog.tsx";
 import { withNotify } from "@/api/common.ts";
@@ -47,17 +48,25 @@ function ConversationItem({
   const { rename } = useConversationActions();
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(0);
+  const loadingConversation = useSelector(selectLoadingConversation);
 
   const [editDialog, setEditDialog] = useState(false);
 
   const loading = conversation.id <= 0;
+  const switching = loadingConversation === conversation.id;
+  const disabledBySwitching = loadingConversation !== -1 && !switching;
 
   return (
     <Clickable
       tapScale={0.975}
       tapDuration={0.01}
-      className={cn("conversation", current === conversation.id && "active")}
+      className={cn(
+        "conversation",
+        current === conversation.id && "active",
+        disabledBySwitching && "opacity-50",
+      )}
       onClick={async (e) => {
+        if (switching || disabledBySwitching) return;
         const target = e.target as HTMLElement;
         if (
           target.classList.contains("delete") ||
@@ -68,14 +77,19 @@ function ConversationItem({
         if (mobile) dispatch(setMenu(false));
       }}
       onContextMenu={(e) => {
+        if (disabledBySwitching) return;
         e.preventDefault();
         e.stopPropagation();
         setOpen(true);
       }}
     >
-      <MessageSquare
-        className={`h-6 w-6 p-1 mr-1 text-secondary bg-input/25 rounded-sm`}
-      />
+      {switching ? (
+        <Loader2 className={`h-6 w-6 p-1 mr-1 text-secondary bg-input/25 rounded-sm animate-spin`} />
+      ) : (
+        <MessageSquare
+          className={`h-6 w-6 p-1 mr-1 text-secondary bg-input/25 rounded-sm`}
+        />
+      )}
       <div className={`title`}>{filterMessage(conversation.name)}</div>
       <DropdownMenu
         open={open}

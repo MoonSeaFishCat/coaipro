@@ -4,6 +4,7 @@ import { selectAuthenticated } from "@/store/auth.ts";
 import {
   selectCurrent,
   selectHistory,
+  selectLoadingConversation,
   selectMaskItem,
   useConversationActions,
 } from "@/store/chat.ts";
@@ -23,6 +24,8 @@ import {
   RotateCw,
   Search,
   User,
+  X,
+  Loader2,
 } from "lucide-react";
 import ConversationItem from "./ConversationItem.tsx";
 import {
@@ -398,9 +401,10 @@ function SidebarConversationList({
 
 function SideBar() {
   const { t } = useTranslation();
-  const { refresh } = useConversationActions();
+  const { refresh, cancelLoading } = useConversationActions();
   const open = useSelector(selectMenu);
   const auth = useSelector(selectAuthenticated);
+  const loadingConversation = useSelector(selectLoadingConversation);
 
   const [search, setSearch] = useState<string>("");
   const [operateConversation, setOperateConversation] = useState<Operation>({
@@ -432,6 +436,30 @@ function SideBar() {
           >
             <User className={`h-4 w-4 mr-1.5 shrink-0`} /> {t("login-action")}
           </Button>
+        )}
+
+        {loadingConversation !== -1 && (
+          <div className={cn("mt-2 px-2 py-2 rounded-md bg-background/70 border flex items-center gap-2")}
+               onClick={(e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+               }}
+          >
+            <Loader2 className={cn("h-4 w-4 animate-spin")} />
+            <div className={cn("text-xs text-secondary")}>{t("loading")}</div>
+            <div className={cn("grow")} />
+            <Button
+              variant={`ghost`}
+              size={`icon`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelLoading();
+              }}
+            >
+              <X className={cn("h-4 w-4")} />
+            </Button>
+          </div>
         )}
       </div>
     </div>

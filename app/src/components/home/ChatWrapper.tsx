@@ -17,7 +17,7 @@ import {
 import { formatMessage } from "@/utils/processor.ts";
 import ChatInterface from "@/components/home/ChatInterface.tsx";
 import { clearHistoryState, getQueryParam } from "@/utils/path.ts";
-import { forgetMemory, getNumberMemory, popMemory } from "@/utils/memory.ts";
+import { forgetMemory, getMemory, getNumberMemory, popMemory } from "@/utils/memory.ts";
 import { alignSelector } from "@/store/settings.ts";
 import { FileArray } from "@/api/file.ts";
 import {
@@ -146,7 +146,16 @@ function ChatWrapper() {
 
     // auto open last conversation after refresh
     (async () => {
-      const store = getNumberMemory("history_conversation", -1);
+      const storedSessionId = getMemory("current_session_id");
+      const storedSessionConversation = getNumberMemory(
+        "current_session_conversation",
+        -1,
+      );
+
+      const store =
+        storedSessionId && storedSessionConversation !== -1
+          ? storedSessionConversation
+          : getNumberMemory("history_conversation", -1);
       if (store === -1) return;
       if (current === store) return;
       try {

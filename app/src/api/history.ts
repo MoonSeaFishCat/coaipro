@@ -28,9 +28,10 @@ export async function updateConversationList(
 
 export async function loadConversation(
   id: number,
+  signal?: AbortSignal,
 ): Promise<ConversationInstance> {
   try {
-    const resp = await axios.get(`/conversation/load?id=${id}`);
+    const resp = await axios.get(`/conversation/load?id=${id}`, { signal });
     
     if (resp.data.status) {
       const conversation = resp.data.data as ConversationInstance;
@@ -105,7 +106,14 @@ export async function loadConversation(
       return conversation;
     }
     return { id, name: "", message: [] };
-  } catch (e) {
+  } catch (e: any) {
+    if (
+      e?.code === "ERR_CANCELED" ||
+      e?.name === "CanceledError" ||
+      e?.name === "AbortError"
+    ) {
+      throw e;
+    }
     console.warn(e);
     return { id, name: "", message: [] };
   }
