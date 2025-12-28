@@ -176,7 +176,10 @@ server {
 
 ## TODO
 
-- [ ] 适配NanoBanana模型
+- [x] 对话页，绘画页支持异步调度（关闭浏览器再进入网页仍然可找回未完成的会话，服务器与AI API端进行后台调度）
+- [x] 绘画页图片查看器，历史记录浏览器端存储
+- [ ] 绘画页-适配 NanoBanana,sora,veo,gpt-image
+- [ ] 对话页-适配 NanoBanana 模型
 
 ## 文档
 
