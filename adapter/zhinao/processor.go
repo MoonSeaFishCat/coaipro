@@ -85,7 +85,7 @@ func (c *ChatInstance) ProcessLine(buf, data string) (string, error) {
 		}
 
 		if err := processChatErrorResponse(item); err == nil || err.Data.Error.Message == "" {
-			globals.Warn(fmt.Sprintf("zhinao error: cannot parse response: %s", item))
+			globals.Warn(fmt.Sprintf("zhinao error: cannot parse response: %s", utils.TruncateLog(item)))
 			return data, errors.New("parser error: cannot parse response")
 		} else {
 			return "", fmt.Errorf("zhinao error: %s (type: %s)", err.Data.Error.Message, err.Data.Error.Type)

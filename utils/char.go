@@ -69,6 +69,19 @@ func Marshal[T interface{}](data T) string {
 	return string(res)
 }
 
+func MarshalLog[T interface{}](data T) string {
+	raw := Marshal(data)
+	// Truncate base64 image data in logs to prevent large binary output
+	re := regexp.MustCompile(`(data:image/\w+;base64,)([\w+/=]{21,})`)
+	return re.ReplaceAllStringFunc(raw, func(s string) string {
+		matches := re.FindStringSubmatch(s)
+		if len(matches) > 2 {
+			return matches[1] + matches[2][:20] + "..."
+		}
+		return s
+	})
+}
+
 func MarshalWithIndent[T interface{}](data T, length ...int) string {
 	var indent string
 	if len(length) > 0 {
@@ -216,6 +229,10 @@ func Extract(data string, length int, flow_ ...string) string {
 	} else {
 		return data
 	}
+}
+
+func TruncateLog(data string) string {
+	return Extract(data, 20, "...")
 }
 
 func ExtractUrls(data string) []string {

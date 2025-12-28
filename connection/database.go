@@ -23,6 +23,28 @@ func InitMySQLSafe() *sql.DB {
 	return DB
 }
 
+func CreateDrawingTaskTable(db *sql.DB) {
+	_, err := globals.ExecDb(db, `
+		CREATE TABLE IF NOT EXISTS drawing_task (
+		  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+		  user_id BIGINT NOT NULL UNIQUE,
+		  status VARCHAR(16) NOT NULL DEFAULT 'none',
+		  model VARCHAR(255) NOT NULL,
+		  prompt TEXT,
+		  params TEXT,
+		  data MEDIUMTEXT,
+		  error TEXT,
+		  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		  INDEX(user_id),
+		  INDEX(status)
+		);
+	`)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
 func getConn() *sql.DB {
 	if viper.GetString("mysql.host") == "" {
 		globals.SqliteEngine = true
@@ -92,6 +114,7 @@ func ConnectDatabase() *sql.DB {
 	CreateBroadcastTable(db)
 	CreateUsageLogTable(db)
 	CreatePaymentOrderTable(db)
+	CreateDrawingTaskTable(db)
 
 	if err := doMigration(db); err != nil {
 		fmt.Println(fmt.Sprintf("migration error: %s", err))

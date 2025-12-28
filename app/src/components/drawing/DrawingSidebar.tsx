@@ -10,6 +10,18 @@ import { Button } from "@/components/ui/button.tsx";
 import ModelAvatar from "@/components/ModelAvatar.tsx";
 import Icon from "@/components/utils/Icon";
 import Tips from "@/components/Tips";
+import type { DrawingHistoryItem } from "@/routes/Drawing.tsx";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog.tsx";
 import {
   Award,
   Bolt,
@@ -25,6 +37,9 @@ import {
   Sparkles,
   Zap,
   Loader2,
+  AlertCircle,
+  X,
+  Plus,
 } from "lucide-react";
 import { includingModelFromPlan } from "@/conf/subscription.tsx";
 import { levelSelector } from "@/store/subscription.ts";
@@ -44,18 +59,21 @@ import { toast } from "sonner";
 const DRAWING_TAG = "image-generation";
 const PLAN_INCLUDED_TAG = "plan-included";
 const HIDDEN_TAGS = ["official", "fast", "unstable", "free"];
-const FIRST_CLASS_MODELS = new Set(["grok-3-image"]);
-const RATIO_OPTIONS = [
-  { label: "1:1", value: "1:1" },
-  { label: "16:9", value: "16:9" },
-  { label: "9:16", value: "9:16" },
+const FIRST_CLASS_MODELS = new Set([
+  "gpt-image-1-vip",
+  "sora_image",
+]);
+export const RATIO_OPTIONS = [
+  { label: "方形 (1:1; 1024x1024)", value: "1024x1024" },
+  { label: "横屏 (16:9; 1536x1024)", value: "1536x1024" },
+  { label: "竖屏 (9:16; 1024x1536)", value: "1024x1536" },
 ] as const;
-const QUANTITY_OPTIONS = ["2"];
+const QUANTITY_OPTIONS = ["1", "2"];
 
 export type DrawingSubmitPayload = {
   modelId: string;
-  ratio: (typeof RATIO_OPTIONS)[number]["value"];
-  quantity: number;
+  size: (typeof RATIO_OPTIONS)[number]["value"];
+  n: number;
   prompt: string;
 };
 
@@ -63,6 +81,11 @@ type DrawingSidebarProps = {
   onSubmit?: (payload: DrawingSubmitPayload) => void;
   submitting?: boolean;
   onModelChange?: (modelId: string, model: Model | null) => void;
+  history?: DrawingHistoryItem[];
+  onApplyHistory?: (item: DrawingHistoryItem) => void;
+  onDeleteHistory?: (id: string) => void;
+  onClearHistory?: () => void;
+  className?: string;
 };
 
 const TAG_ICON_MAP: Record<string, ReactNode> = {
@@ -99,8 +122,13 @@ export default function DrawingSidebar({
   onSubmit,
   submitting,
   onModelChange,
+  history = [],
+  onApplyHistory,
+  onDeleteHistory,
+  onClearHistory,
 }: DrawingSidebarProps) {
   const { t } = useTranslation();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const open = useSelector(selectMenu);
   const supportModels = useSelector(selectSupportModels);
   const subscriptionData = useSelector(subscriptionDataSelector);
@@ -116,11 +144,16 @@ export default function DrawingSidebar({
   const [selectedId, setSelectedId] = useState<string>(
     drawingModels[0]?.id ?? "",
   );
+  const [mode, setMode] = useState<"generate" | "edit">("generate");
   const [ratio, setRatio] = useState<(typeof RATIO_OPTIONS)[number]["value"]>(
     RATIO_OPTIONS[0].value,
   );
   const [quantity, setQuantity] = useState<string>(QUANTITY_OPTIONS[0]);
   const [prompt, setPrompt] = useState<string>("");
+
+  const isDalleModel = useMemo(() => {
+    return selectedId === "gpt-image-1-vip" || selectedId === "sora_image";
+  }, [selectedId]);
 
   useEffect(() => {
     if (drawingModels.length === 0) {
@@ -164,9 +197,9 @@ export default function DrawingSidebar({
     }
 
     onSubmit?.({
-      modelId: selectedModel.id,
-      ratio,
-      quantity: parseInt(quantity, 10),
+      modelId: selectedId,
+      size: ratio,
+      n: parseInt(quantity, 10),
       prompt: cleanPrompt,
     });
   };
@@ -224,12 +257,132 @@ export default function DrawingSidebar({
             variant="outline"
             size="sm"
             className="drawing-history-button"
-            disabled
+            onClick={() => setHistoryOpen(true)}
           >
             <History className="w-4 h-4" />
             <span>{t("drawing.historyButton")}</span>
           </Button>
         </div>
+
+        {historyOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <motion.div
+              className="bg-card border shadow-lg rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-lg">{t("drawing.historyButton")}</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {history.length > 0 && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>{t("drawing.clearHistory")}</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>{t("are-you-sure")}</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {t("drawing.clearHistoryConfirm")}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{t("conversation.cancel")}</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => onClearHistory?.()}
+                          >
+                            {t("confirm")}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-2 text-amber-600 dark:text-amber-500 text-xs">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <p>{t("drawing.historyWarning")}</p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                    <History className="w-12 h-12 mb-4 opacity-20" />
+                    <p>{t("drawing.modelEmptyTitle")}</p>
+                  </div>
+                ) : (
+                  history.map((item) => (
+                    <div
+                      key={item.id}
+                      className="group relative flex flex-row gap-4 p-3 rounded-lg border bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        onApplyHistory?.(item);
+                        setHistoryOpen(false);
+                      }}
+                    >
+                      <div className="w-20 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                        {item.images.length > 0 ? (
+                          <img
+                            src={item.images[0]}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <p className="text-sm font-medium truncate mb-1">
+                          {item.params.prompt}
+                        </p>
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Plus className="w-3 h-3" />
+                            {item.modelName}
+                          </span>
+                          <span>{new Date(item.time).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-full hover:bg-destructive hover:text-white transition-all flex-shrink-0 self-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteHistory?.(item.id);
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         <Select
           value={selectedId}
           onValueChange={setSelectedId}
@@ -279,86 +432,123 @@ export default function DrawingSidebar({
       {selectedModel &&
         (isSupportedModel ? (
           <div className="drawing-config-card">
-            <div className="drawing-form-section">
-              <Label htmlFor="drawing-ratio">{t("drawing.ratioLabel")}</Label>
-              <Select
-                value={ratio}
-                onValueChange={(value) =>
-                  setRatio(
-                    value as (typeof RATIO_OPTIONS)[number]["value"],
-                  )
-                }
-                disabled={submitting}
-              >
-                <SelectTrigger
-                  id="drawing-ratio"
-                  className="drawing-ratio-select"
+            {isDalleModel && (
+              <div className="drawing-form-section">
+                <div className="flex flex-row items-center justify-between p-1 bg-secondary/50 rounded-lg mb-2">
+                  <button
+                    className={cn(
+                      "flex-1 py-1 text-xs rounded-md transition-all",
+                      mode === "generate"
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setMode("generate")}
+                  >
+                    {t("drawing.modeGenerate")}
+                  </button>
+                  <button
+                    className={cn(
+                      "flex-1 py-1 text-xs rounded-md transition-all",
+                      mode === "edit"
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setMode("edit")}
+                  >
+                    {t("drawing.modeEdit")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {mode === "edit" ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <AlertCircle className="w-8 h-8 mb-4 text-amber-500" />
+                <p className="text-sm font-medium">{t("drawing.underConstruction")}</p>
+              </div>
+            ) : (
+              <>
+                <div className="drawing-form-section">
+                  <Label htmlFor="drawing-ratio">{t("drawing.ratioLabel")}</Label>
+                  <Select
+                    value={ratio}
+                    onValueChange={(value) =>
+                      setRatio(value as (typeof RATIO_OPTIONS)[number]["value"])
+                    }
+                    disabled={submitting}
+                  >
+                    <SelectTrigger
+                      id="drawing-ratio"
+                      className="drawing-ratio-select"
+                    >
+                      <SelectValue placeholder={t("drawing.ratioLabel")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RATIO_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="drawing-form-section">
+                  <Label htmlFor="drawing-quantity">
+                    {t("drawing.quantityLabel")}
+                  </Label>
+                  <Select
+                    value={quantity}
+                    onValueChange={setQuantity}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger
+                      id="drawing-quantity"
+                      className="drawing-quantity-select"
+                    >
+                      <SelectValue placeholder={t("drawing.quantityLabel")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUANTITY_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {t("drawing.quantityValue", { count: Number(option) })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="drawing-form-section">
+                  <Label htmlFor="drawing-prompt">
+                    {t("drawing.promptLabel")}
+                  </Label>
+                  <Textarea
+                    id="drawing-prompt"
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    placeholder={t("drawing.promptPlaceholder")}
+                    disabled={submitting}
+                    className="min-h-[120px] resize-y"
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  className="drawing-submit-button"
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim().length || submitting}
                 >
-                  <SelectValue placeholder={t("drawing.ratioLabel")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {RATIO_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(`drawing.ratio${option.value.replace(":", "")}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="drawing-form-section">
-              <Label htmlFor="drawing-quantity">
-                {t("drawing.quantityLabel")}
-              </Label>
-              <Select
-                value={quantity}
-                onValueChange={setQuantity}
-                disabled={submitting}
-              >
-                <SelectTrigger
-                  id="drawing-quantity"
-                  className="drawing-quantity-select"
-                >
-                  <SelectValue placeholder={t("drawing.quantityLabel")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUANTITY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {t("drawing.quantityTwo", { count: Number(option) })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="drawing-form-section">
-              <Label htmlFor="drawing-prompt">
-                {t("drawing.promptLabel")}
-              </Label>
-              <Textarea
-                id="drawing-prompt"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder={t("drawing.promptPlaceholder")}
-                disabled={submitting}
-              />
-            </div>
-
-            <Button
-              type="button"
-              className="drawing-submit-button"
-              onClick={handleSubmit}
-              disabled={!prompt.trim().length || submitting}
-            >
-              {submitting && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-              <span>
-                {submitting
-                  ? t("drawing.generatingButton")
-                  : t("drawing.generateButton")}
-              </span>
-            </Button>
+                  {submitting && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  <span>
+                    {submitting
+                      ? t("drawing.generatingButton")
+                      : t("drawing.generateButton")}
+                  </span>
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="drawing-preview-card">

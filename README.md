@@ -90,6 +90,7 @@ cp config.example.yaml config.yaml
 ```bash
 go build -mod=vendor -v -o chatnio
 ```
+开发调试：'go run main.go'
 或(Windows可执行文件)
 ```bash
 go build -mod=vendor -v -o chatnio.exe
@@ -106,6 +107,16 @@ go build -mod=vendor -v -o chatnio.exe
 环境要求：
 - Node.js 18 或更高（项目使用 TypeScript 和 Vite）
 - 推荐使用 pnpm（速度更快），也可以使用 npm 或 yarn
+
+#### 开发环境配置
+
+若需要使用 `npm run dev` 进行前端热更新开发，请注意以下配置：
+
+1. **API 转发配置**：修改 `app/src/conf/bootstrap.ts` 文件。
+   - 将 `export const deploy: boolean = true;` 修改为 `false`。
+   - 这样前端将请求 `http://localhost:8094`（默认后端端口）而非本地 `/api` 路径。
+   - 同时，Token 存储字段会切换为 `token-dev`，避免与生产环境冲突。
+2. **Vite 代理**：确保 `app/vite.config.ts` 中的 `server.proxy` 配置正确指向后端地址。
 
 常用命令（在仓库根目录或直接进入 `app/` 目录）：
 

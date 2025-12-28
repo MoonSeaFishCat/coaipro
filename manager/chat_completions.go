@@ -48,7 +48,7 @@ func ChatRelayAPI(c *gin.Context) {
 		return
 	}
 
-	if utils.GetAgentFromContext(c) != "api" {
+	if utils.GetAgentFromContext(c) != "api" && utils.GetAgentFromContext(c) != "token" {
 		abortWithErrorResponse(c, fmt.Errorf("access denied for invalid agent"), "authentication_error")
 		return
 	}

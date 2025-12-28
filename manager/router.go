@@ -2,6 +2,7 @@ package manager
 
 import (
 	"chat/manager/broadcast"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,9 +16,10 @@ func Register(app *gin.RouterGroup) {
 	app.GET("/dashboard/billing/subscription", GetSubscription)
 	app.POST("/v1/chat/completions", ChatRelayAPI)
 	app.POST("/v1/images/generations", ImagesRelayAPI)
+	app.GET("/v1/images/tasks", GetDrawingTasks)
 
 	// 注册会话管理API
 	RegisterSessionAPI(app)
-	
+
 	broadcast.Register(app)
 }

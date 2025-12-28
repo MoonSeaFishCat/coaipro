@@ -112,7 +112,7 @@ func (c *ChatInstance) CreateStreamChatRequest(props *adaptercommon.ChatProps, c
 	c.isReasonOver = false
 
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[skylark] request: %v", utils.Marshal(req)))
+		globals.Debug(fmt.Sprintf("[skylark] request: %v", utils.MarshalLog(req)))
 	}
 
 	stream, err := c.Instance.CreateChatCompletionStream(context.Background(), req)
@@ -137,7 +137,7 @@ func (c *ChatInstance) CreateStreamChatRequest(props *adaptercommon.ChatProps, c
 		}
 
 		if globals.DebugMode {
-			globals.Debug(fmt.Sprintf("[skylark] response: %v", utils.Marshal(recv)))
+			globals.Debug(fmt.Sprintf("[skylark] response: %v", utils.MarshalLog(recv)))
 		}
 
 		choice := getChoice(recv)

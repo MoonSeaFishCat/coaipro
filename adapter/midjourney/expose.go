@@ -4,9 +4,10 @@ import (
 	"chat/globals"
 	"chat/utils"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 var whiteList []string
@@ -42,7 +43,7 @@ func NotifyAPI(c *gin.Context) {
 		c.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	globals.Debug(fmt.Sprintf("[midjourney] notify api: get notify: %s (from: %s)", utils.Marshal(form), c.ClientIP()))
+	globals.Debug(fmt.Sprintf("[midjourney] notify api: get notify: %s (from: %s)", utils.MarshalLog(form), c.ClientIP()))
 
 	if !utils.Contains(form.Status, []string{InProgress, Success, Failure}) {
 		// ignore

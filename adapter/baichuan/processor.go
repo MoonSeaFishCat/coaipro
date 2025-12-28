@@ -36,6 +36,6 @@ func (c *ChatInstance) ProcessLine(data string) (*globals.Chunk, error) {
 		return &globals.Chunk{Content: ""}, errors.New(fmt.Sprintf("baichuan error: %s (type: %s)", form.Error.Message, form.Error.Type))
 	}
 
-	globals.Warn(fmt.Sprintf("baichuan error: cannot parse chat completion response: %s", data))
+	globals.Warn(fmt.Sprintf("baichuan error: cannot parse chat completion response: %s", utils.TruncateLog(data)))
 	return &globals.Chunk{Content: ""}, errors.New("parser error: cannot parse chat completion response")
 }

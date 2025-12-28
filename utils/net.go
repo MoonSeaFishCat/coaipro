@@ -85,7 +85,7 @@ func fillHeaders(req *http.Request, headers map[string]string) {
 
 func Http(uri string, method string, ptr interface{}, headers map[string]string, body io.Reader, config []globals.ProxyConfig) (err error) {
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[http] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, Marshal(headers), Marshal(body)))
+		globals.Debug(fmt.Sprintf("[http] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, MarshalLog(headers), MarshalLog(body)))
 	}
 
 	req, err := http.NewRequest(method, uri, body)
@@ -112,21 +112,21 @@ func Http(uri string, method string, ptr interface{}, headers map[string]string,
 
 	if err = json.NewDecoder(resp.Body).Decode(ptr); err != nil {
 		if globals.DebugMode {
-			globals.Debug(fmt.Sprintf("[http] failed to decode response: %s\nresponse: %s", err, resp.Body))
+			globals.Debug(fmt.Sprintf("[http] failed to decode response: %s", err))
 		}
 
 		return err
 	}
 
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[http] response: %s", Marshal(ptr)))
+		globals.Debug(fmt.Sprintf("[http] response: %s", MarshalLog(ptr)))
 	}
 	return nil
 }
 
 func HttpRaw(uri string, method string, headers map[string]string, body io.Reader, config []globals.ProxyConfig) (data []byte, err error) {
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[http] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, Marshal(headers), Marshal(body)))
+		globals.Debug(fmt.Sprintf("[http] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, MarshalLog(headers), MarshalLog(body)))
 	}
 
 	req, err := http.NewRequest(method, uri, body)
@@ -160,7 +160,7 @@ func HttpRaw(uri string, method string, headers map[string]string, body io.Reade
 	}
 
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[http] response: %s", string(data)))
+		globals.Debug(fmt.Sprintf("[http] response: %s", TruncateLog(string(data))))
 	}
 	return data, nil
 }
@@ -232,7 +232,7 @@ func EventSource(method string, uri string, headers map[string]string, body inte
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	if globals.DebugMode {
-		globals.Debug(fmt.Sprintf("[http-stream] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, Marshal(headers), Marshal(body)))
+		globals.Debug(fmt.Sprintf("[http-stream] %s %s\nheaders: \n%s\nbody: \n%s", method, uri, MarshalLog(headers), MarshalLog(body)))
 	}
 
 	client := newClient(config)
@@ -286,7 +286,7 @@ func EventSource(method string, uri string, headers map[string]string, body inte
 		data := string(buf[:n])
 		for _, item := range strings.Split(data, "\n") {
 			if globals.DebugMode {
-				globals.Debug(fmt.Sprintf("[http-stream] response: %s", item))
+				globals.Debug(fmt.Sprintf("[http-stream] response: %s", TruncateLog(item)))
 			}
 
 			segment := strings.TrimSpace(item)

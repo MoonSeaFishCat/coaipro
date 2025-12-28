@@ -2,8 +2,9 @@ package middleware
 
 import (
 	"chat/globals"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func CORSMiddleware() gin.HandlerFunc {
