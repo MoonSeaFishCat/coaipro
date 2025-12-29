@@ -15,6 +15,11 @@ self.addEventListener('install', function (event) {
 });
 
 self.addEventListener('fetch', function (event) {
+  // 仅处理 GET 请求的缓存，避免拦截 POST/PUT 等带 body 的请求
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(function (response) {

@@ -11,6 +11,7 @@ import (
 type ImageProps struct {
 	Model     string
 	Prompt    string
+	Image     string
 	Size      ImageSize
 	N         int
 	Type      string
@@ -18,7 +19,10 @@ type ImageProps struct {
 	Proxy     globals.ProxyConfig
 }
 
-func (c *ChatInstance) GetImageEndpoint() string {
+func (c *ChatInstance) GetImageEndpoint(props ImageProps) string {
+	if props.Image != "" {
+		return fmt.Sprintf("%s/v1/images/edits", c.GetEndpoint())
+	}
 	return fmt.Sprintf("%s/v1/images/generations", c.GetEndpoint())
 }
 
@@ -29,10 +33,11 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) ([]string, []string,
 	}
 
 	res, err := utils.Post(
-		c.GetImageEndpoint(),
+		c.GetImageEndpoint(props),
 		c.GetHeader(), ImageRequest{
 			Model:     props.Model,
 			Prompt:    props.Prompt,
+			Image:     props.Image,
 			Size:      props.Size,
 			N:         props.N,
 			Type:      props.Type,

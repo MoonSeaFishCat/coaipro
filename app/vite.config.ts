@@ -27,7 +27,7 @@ export default defineConfig({
   },
   build: {
     manifest: true,
-    chunkSizeWarningLimit: 2048,
+    chunkSizeWarningLimit: 10000,
     rollupOptions: {
       output: {
         entryFileNames: `assets/[name].[hash].js`,

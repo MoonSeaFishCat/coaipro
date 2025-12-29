@@ -40,7 +40,7 @@ export function getRestApi(deploy: boolean): string {
   /**
    * return the REST API address
    */
-  return !deploy ? "http://localhost:8094" : backendEndpoint;
+  return deploy ? backendEndpoint : "http://localhost:8094";
 }
 
 export function getWebsocketApi(deploy: boolean): string {
@@ -49,8 +49,8 @@ export function getWebsocketApi(deploy: boolean): string {
    */
   if (!deploy) return "ws://localhost:8094";
 
-  if (backendEndpoint.startsWith("http://"))
-    return `ws://${backendEndpoint.slice(7)}`;
+  if (backendEndpoint.startsWith("ws://") || backendEndpoint.startsWith("wss://"))
+    return backendEndpoint;
   if (backendEndpoint.startsWith("https://"))
     return `wss://${backendEndpoint.slice(8)}`;
   if (backendEndpoint.startsWith("/"))

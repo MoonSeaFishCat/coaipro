@@ -130,7 +130,10 @@ func createRelayImageObject(c *gin.Context, form RelayImageForm, prompt string, 
 	}
 
 	// 写入/更新任务为 running（如果不存在则创建一行）
-	params := utils.Marshal(form)
+	// 清理掉 params 中的大图片数据以防数据库字段溢出
+	dbParams := form
+	dbParams.Image = ""
+	params := utils.Marshal(dbParams)
 	if _, err := globals.ExecDb(db, "INSERT INTO drawing_task (user_id, status, model, prompt, params) VALUES (?, ?, ?, ?, ?)", userID, "running", form.Model, prompt, params); err != nil {
 		// duplicate -> update
 		if _, err2 := globals.ExecDb(db, "UPDATE drawing_task SET status = ?, model = ?, prompt = ?, params = ?, data = NULL, error = NULL WHERE user_id = ?", "running", form.Model, prompt, params, userID); err2 != nil {
@@ -158,6 +161,7 @@ func createRelayImageObject(c *gin.Context, form RelayImageForm, prompt string, 
 					urls, b64s, err := instance.CreateImageRequest(openai.ImageProps{
 						Model:     form.Model,
 						Prompt:    prompt,
+						Image:     form.Image,
 						Size:      openai.ImageSize(form.Size),
 						N:         n,
 						Type:      form.Type,

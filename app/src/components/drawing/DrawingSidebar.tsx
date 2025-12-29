@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button.tsx";
 import ModelAvatar from "@/components/ModelAvatar.tsx";
 import Icon from "@/components/utils/Icon";
 import Tips from "@/components/Tips";
-import type { DrawingHistoryItem } from "@/routes/Drawing.tsx";
+import type { DrawingHistoryItem } from "@/utils/drawing-db.ts";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +75,7 @@ export type DrawingSubmitPayload = {
   size: (typeof RATIO_OPTIONS)[number]["value"];
   n: number;
   prompt: string;
+  image?: string; // base64
 };
 
 type DrawingSidebarProps = {
@@ -150,6 +151,24 @@ export default function DrawingSidebar({
   );
   const [quantity, setQuantity] = useState<string>(QUANTITY_OPTIONS[0]);
   const [prompt, setPrompt] = useState<string>("");
+  const [image, setImage] = useState<string>("");
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1024 * 1024 * 4) {
+      toast.error(t("drawing.imageTooLarge") || "图片大小不能超过 4MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setImage(base64);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const isDalleModel = useMemo(() => {
     return selectedId === "gpt-image-1-vip" || selectedId === "sora_image";
@@ -201,6 +220,7 @@ export default function DrawingSidebar({
       size: ratio,
       n: parseInt(quantity, 10),
       prompt: cleanPrompt,
+      image: mode === "edit" ? image : undefined,
     });
   };
 
@@ -462,10 +482,99 @@ export default function DrawingSidebar({
             )}
 
             {mode === "edit" ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <AlertCircle className="w-8 h-8 mb-4 text-amber-500" />
-                <p className="text-sm font-medium">{t("drawing.underConstruction")}</p>
-              </div>
+              <>
+                <div className="drawing-form-section">
+                  <Label>{t("drawing.uploadImage") || "上传图片"}</Label>
+                  <div className="flex flex-col gap-3">
+                    {image ? (
+                      <div className="relative aspect-square w-full rounded-lg overflow-hidden border bg-muted group">
+                        <img
+                          src={image}
+                          alt="Upload preview"
+                          className="w-full h-full object-contain"
+                        />
+                        <button
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-background/80 hover:bg-background text-foreground shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                          onClick={() => setImage("")}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative aspect-square w-full rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary/50 transition-colors flex flex-col items-center justify-center bg-secondary/20 group cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          onChange={handleImageUpload}
+                        />
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                          <Plus className="w-8 h-8" />
+                          <span className="text-xs font-medium">{t("drawing.clickToUpload") || "点击上传图片"}</span>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-muted-foreground px-1 italic">
+                      {t("drawing.editTip") || "* 图片编辑模式需要上传一张基础图片"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="drawing-form-section">
+                  <Label htmlFor="drawing-ratio">{t("drawing.ratioLabel")}</Label>
+                  <Select
+                    value={ratio}
+                    onValueChange={(value) =>
+                      setRatio(value as (typeof RATIO_OPTIONS)[number]["value"])
+                    }
+                    disabled={submitting}
+                  >
+                    <SelectTrigger
+                      id="drawing-ratio"
+                      className="drawing-ratio-select"
+                    >
+                      <SelectValue placeholder={t("drawing.ratioLabel")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RATIO_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="drawing-form-section">
+                  <Label htmlFor="drawing-prompt">
+                    {t("drawing.editPromptLabel") || "修改建议"}
+                  </Label>
+                  <Textarea
+                    id="drawing-prompt"
+                    value={prompt}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    placeholder={t("drawing.editPromptPlaceholder") || "描述你想要如何修改这张图片..."}
+                    disabled={submitting}
+                    className="min-h-[100px] resize-y"
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  className="drawing-submit-button"
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim().length || !image || submitting}
+                >
+                  {submitting && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  <span>
+                    {submitting
+                      ? t("drawing.editingButton") || "正在编辑..."
+                      : t("drawing.editButton") || "开始编辑"}
+                  </span>
+                </Button>
+              </>
             ) : (
               <>
                 <div className="drawing-form-section">

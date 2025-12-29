@@ -13,11 +13,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/utils/base.ts";
 import type { Model } from "@/api/types.tsx";
 
-export type DrawingHistoryItem = DrawingMainState & {
-  id: string;
-  time: number;
-  params: DrawingSubmitPayload;
-};
+import { DrawingHistoryItem, drawingDB } from "@/utils/drawing-db.ts";
 
 const initialState: DrawingMainState = {
   status: "idle",
@@ -38,78 +34,95 @@ function Drawing() {
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [currentModel, setCurrentModel] = useState<Model | null>(null);
   const [history, setHistory] = useState<DrawingHistoryItem[]>([]);
+  const isLoadedRef = useRef(false);
   const [mobileTab, setMobileTab] = useState<"prepare" | "generate">("prepare");
   const abortRef = useRef<AbortController | null>(null);
 
   const isMobile = useMemo(() => window.innerWidth <= 768, []);
 
-  // 保存历史记录到缓存
+  // 保存历史记录到 IndexedDB
   useEffect(() => {
-    try {
-      // 限制存储数量，Base64 图片数据非常占空间
-      const MAX_HISTORY_COUNT = 50;
-      const optimizedHistory = history.slice(0, MAX_HISTORY_COUNT);
-      localStorage.setItem(DRAWING_HISTORY_KEY, JSON.stringify(optimizedHistory));
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "QuotaExceededError") {
-        console.warn("[drawing] localstorage quota exceeded, clearing old history");
-        // 如果依然超限，采取激进策略：只保留最近的 10 条
-        setHistory(prev => prev.slice(0, 10));
+    if (!isLoadedRef.current) return; // 初始加载完成前不保存，防止空状态覆盖数据库
+
+    const saveToDB = async () => {
+      try {
+        await drawingDB.saveAll(history, 100);
+      } catch (e) {
+        console.error("[drawing] failed to save history to IndexedDB", e);
       }
-    }
+    };
+    saveToDB();
   }, [history]);
 
-  // 加载缓存的最新结果和历史记录
+  // 加载 IndexedDB 的最新结果和历史记录
   useEffect(() => {
-    const cachedHistory = localStorage.getItem(DRAWING_HISTORY_KEY);
-    let parsedHistory: DrawingHistoryItem[] = [];
-    if (cachedHistory) {
+    const initData = async () => {
+      let finalHistory: DrawingHistoryItem[] = [];
       try {
-        parsedHistory = JSON.parse(cachedHistory);
-        setHistory(parsedHistory);
-      } catch (e) {
-        console.warn("[drawing] failed to parse history", e);
-      }
-    }
+        // 1. 从 IndexedDB 读取
+        finalHistory = await drawingDB.getAll();
 
-    const cached = localStorage.getItem(DRAWING_CACHE_KEY);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setMainState({
-          ...parsed,
-          status: "success",
-        });
-
-        // 检查当前缓存的图片是否在历史记录中，如果不在则添加（补全历史记录）
-        const exists = parsedHistory.some(item => 
-          JSON.stringify(item.images) === JSON.stringify(parsed.images) &&
-          item.message === parsed.message
-        );
-
-        if (!exists && parsed.images.length > 0) {
-          setHistory(prev => [
-            {
-              id: `legacy-${Date.now()}`,
-              time: Date.now(),
-              status: "success",
-              images: parsed.images,
-              message: parsed.message || "",
-              modelName: parsed.modelName,
-              params: {
-                modelId: "unknown",
-                prompt: "已缓存的绘图结果",
-                n: parsed.images.length,
-                size: "1024x1024",
-              }
-            },
-            ...prev
-          ]);
+        // 2. 尝试从 LocalStorage 迁移旧数据
+        const cachedHistory = localStorage.getItem(DRAWING_HISTORY_KEY);
+        if (cachedHistory) {
+          try {
+            const parsedHistory = JSON.parse(cachedHistory);
+            if (Array.isArray(parsedHistory) && parsedHistory.length > 0) {
+              parsedHistory.forEach((item: any) => {
+                if (!finalHistory.some(i => i.id === item.id)) {
+                  finalHistory.push(item);
+                }
+              });
+              finalHistory.sort((a, b) => b.time - a.time);
+            }
+            localStorage.removeItem(DRAWING_HISTORY_KEY);
+          } catch (e) {
+            console.warn("[drawing] failed to migrate legacy history", e);
+          }
         }
+
+        // 3. 检查当前缓存的图片是否需要补全
+        const cachedResult = localStorage.getItem(DRAWING_CACHE_KEY);
+        if (cachedResult) {
+          try {
+            const parsed = JSON.parse(cachedResult);
+            setMainState(prev => ({ ...prev, ...parsed, status: "success" }));
+
+            const exists = finalHistory.some(item =>
+              JSON.stringify(item.images) === JSON.stringify(parsed.images) &&
+              item.message === parsed.message
+            );
+
+            if (!exists && parsed.images && parsed.images.length > 0) {
+              finalHistory.unshift({
+                id: `legacy-${Date.now()}`,
+                time: Date.now(),
+                status: "success",
+                images: parsed.images,
+                message: parsed.message || "",
+                modelName: parsed.modelName,
+                params: {
+                  modelId: "unknown",
+                  prompt: "已缓存的绘图结果",
+                  n: parsed.images.length,
+                  size: "1024x1024",
+                }
+              });
+            }
+          } catch (e) {
+            console.warn("[drawing] failed to parse cache", e);
+          }
+        }
+
+        setHistory(finalHistory);
+        isLoadedRef.current = true; // 标记加载完成
       } catch (e) {
-        console.warn("[drawing] failed to parse cache", e);
+        console.error("[drawing] failed to initialize history", e);
+        isLoadedRef.current = true;
       }
-    }
+    };
+
+    initData();
   }, []);
 
   // 监听状态变化保存到最新缓存（带异常处理）
@@ -318,13 +331,14 @@ function Drawing() {
         payload.modelId === "sora_image";
 
       const endpoint = isV1Images
-        ? `${apiEndpoint}/v1/images/generations`
+        ? (payload.image ? `${apiEndpoint}/v1/images/edits` : `${apiEndpoint}/v1/images/generations`)
         : `${apiEndpoint}/v1/chat/completions`;
 
       const requestBody = isV1Images
         ? {
             model: payload.modelId,
             prompt: payload.prompt,
+            image: payload.image,
             n: payload.n,
             size: payload.size,
           }
@@ -396,9 +410,9 @@ function Drawing() {
     setHistory((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const handleClearHistory = useCallback(() => {
+  const handleClearHistory = useCallback(async () => {
+    await drawingDB.clear();
     setHistory([]);
-    localStorage.removeItem(DRAWING_HISTORY_KEY);
     toast.success(t("drawing.historyCleared") || "历史记录已清空");
   }, [t]);
 

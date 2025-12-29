@@ -106,6 +106,7 @@ type TranshipmentError struct {
 type RelayImageForm struct {
 	Model     string `json:"model"`
 	Prompt    string `json:"prompt"`
+	Image     string `json:"image,omitempty"`
 	N         *int   `json:"n,omitempty"`
 	Size      string `json:"size,omitempty"`
 	Type      string `json:"type,omitempty"`

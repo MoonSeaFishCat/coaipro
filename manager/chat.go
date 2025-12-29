@@ -110,7 +110,7 @@ func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncou
 
 	_ = admin.CreateUsageLog(db, &admin.UsageLog{
 		UserID:       user.GetID(db),
-		Type:         "conversation",
+		Type:         "drawing",
 		Model:        buffer.GetModel(),
 		InputTokens:  buffer.CountInputToken(),
 		OutputTokens: buffer.CountOutputToken(false),

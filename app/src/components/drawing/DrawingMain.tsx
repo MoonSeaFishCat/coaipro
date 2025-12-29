@@ -280,10 +280,11 @@ export default function DrawingMain({
             <motion.img
               src={images[currentIndex]}
               alt=""
-              className="max-w-full max-h-full object-contain pointer-events-auto"
+              className="max-w-full max-h-full object-contain pointer-events-auto select-none"
               style={{ scale }}
-              drag={scale > 1}
-              dragElastic={0.1}
+              drag
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragElastic={0.5}
               dragMomentum={false}
               key={`${currentIndex}-${resetKey}`} // 切换图片或点击复原时重置位置
             />
