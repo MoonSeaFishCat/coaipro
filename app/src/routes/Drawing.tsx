@@ -426,19 +426,18 @@ function Drawing() {
         onApplyHistory={handleApplyHistory}
         onDeleteHistory={handleDeleteHistory}
         onClearHistory={handleClearHistory}
+        onMobileTabChange={setMobileTab}
         className={cn(
           "transition-all duration-300",
           isMobile && mobileTab !== "prepare" && "hidden"
         )}
       />
-      <DrawingMain 
-        {...mainState} 
+      <DrawingMain
+        {...mainState}
         className={cn(
           "transition-all duration-300",
           isMobile && mobileTab !== "generate" && "hidden"
         )}
-        mobileTab={mobileTab}
-        onMobileTabChange={setMobileTab}
       />
     </div>
   );

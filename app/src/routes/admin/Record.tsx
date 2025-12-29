@@ -30,12 +30,34 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog.tsx";
+import { clearUsageLog } from "@/admin/api/usage.ts";
+import { Trash2 } from "lucide-react";
+
 function Record() {
   const { t } = useTranslation();
   const [data, setData] = useState<UsageLogData[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(0);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [rootPassword, setRootPassword] = useState("");
 
   // Filters
   const [username, setUsername] = useState<string>("");
@@ -64,6 +86,28 @@ function Record() {
     }
   }
 
+  async function handleClear() {
+    if (!rootPassword) {
+      toast.error(t("admin.password-required"));
+      return;
+    }
+
+    setLoading(true);
+    const resp = await clearUsageLog(rootPassword);
+    setLoading(false);
+
+    if (resp.status) {
+      toast.success(t("admin.operate-success"));
+      setClearDialogOpen(false);
+      setRootPassword("");
+      update();
+    } else {
+      toast.error(t("admin.operate-failed"), {
+        description: resp.message,
+      });
+    }
+  }
+
   useEffectAsync(update, [page]);
 
   function handleSearch() {
@@ -73,6 +117,7 @@ function Record() {
 
   function getTypeColor(type: string): "default" | "secondary" | "destructive" | "outline" {
     switch (type) {
+      case "consume":
       case "conversation":
         return "default";
       case "recharge":
@@ -87,6 +132,7 @@ function Record() {
 
   function formatValue(log: UsageLogData): string {
     switch (log.type) {
+      case "consume":
       case "conversation":
         return `${log.quota_cost.toFixed(4)} ${t("record.quota")}${log.is_plan ? ` (${t("record.types.system")})` : ""}`;
       case "recharge":
@@ -106,7 +152,11 @@ function Record() {
 
   function formatDetail(log: UsageLogData): string {
     switch (log.type) {
+      case "consume":
       case "conversation":
+        if (log.model === "web-search") {
+          return log.detail || "-";
+        }
         return `${log.model} (${log.input_tokens}→${log.output_tokens} tokens)`;
       case "subscription":
         return log.subscription_months ? `${log.subscription_months} ${t("month")}` : log.detail || "-";
@@ -139,7 +189,7 @@ function Record() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("record.types.all")}</SelectItem>
-                  <SelectItem value="conversation">{t("record.types.conversation")}</SelectItem>
+                  <SelectItem value="consume">{t("record.types.consume")}</SelectItem>
                   <SelectItem value="recharge">{t("record.types.recharge")}</SelectItem>
                   <SelectItem value="payment">{t("record.types.payment")}</SelectItem>
                   <SelectItem value="subscription">{t("record.types.subscription")}</SelectItem>
@@ -175,7 +225,43 @@ function Record() {
                 <RotateCw className="h-4 w-4" />
               )}
             </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setClearDialogOpen(true)}
+              disabled={loading}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {t("admin.clear-usage-log")}
+            </Button>
           </div>
+
+          <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("admin.clear-usage-log-title")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("admin.clear-usage-log-description")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="py-4">
+                <Input
+                  type="password"
+                  placeholder={t("admin.root-password-placeholder")}
+                  value={rootPassword}
+                  onChange={(e) => setRootPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleClear()}
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setRootPassword("")}>
+                  {t("admin.cancel")}
+                </AlertDialogCancel>
+                <AlertDialogAction onClick={handleClear} disabled={loading}>
+                  {t("admin.confirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Table */}
           {(data && data.length > 0) || page > 0 ? (
@@ -205,8 +291,19 @@ function Record() {
                       </TableCell>
                       <TableCell>{log.model || "-"}</TableCell>
                       <TableCell>{formatValue(log)}</TableCell>
-                      <TableCell className="max-w-md truncate">
-                        {formatDetail(log)}
+                      <TableCell className="max-w-md">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="truncate cursor-help">
+                                {formatDetail(log)}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[400px] break-all whitespace-pre-wrap">
+                              {formatDetail(log)}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                     </TableRow>
                   ))}

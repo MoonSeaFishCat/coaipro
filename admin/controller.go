@@ -2,6 +2,7 @@ package admin
 
 import (
 	"chat/admin/analysis"
+	"chat/globals"
 	"chat/utils"
 	"net/http"
 	"strconv"
@@ -515,4 +516,58 @@ func UsageLogPaginationAPI(c *gin.Context) {
 	endDate := strings.TrimSpace(c.Query("end_date"))
 
 	c.JSON(http.StatusOK, GetUsageLogPagination(db, int64(page), username, logType, startDate, endDate))
+}
+
+func ClearUsageLogAPI(c *gin.Context) {
+	db := utils.GetDBFromContext(c)
+
+	var form struct {
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&form); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  "password is required",
+		})
+		return
+	}
+
+	password := strings.TrimSpace(form.Password)
+	if password == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  "password is required",
+		})
+		return
+	}
+
+	var hash string
+	if err := globals.QueryRowDb(db, "SELECT password FROM auth WHERE username = 'root'").Scan(&hash); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	if hash != utils.Sha2Encrypt(password) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  "invalid password",
+		})
+		return
+	}
+
+	if err := DeleteUsageLogs(db); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": true,
+	})
 }

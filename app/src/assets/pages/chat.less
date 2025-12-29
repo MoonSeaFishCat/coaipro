@@ -496,6 +496,13 @@
 @media (max-width: 768px) {
   .sidebar.drawing-sidebar {
     padding: 1rem 1.25rem 1.5rem;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+
+    &.hidden {
+      display: none !important;
+    }
   }
 
   .drawing-main {

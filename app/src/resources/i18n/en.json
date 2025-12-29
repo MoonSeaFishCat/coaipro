@@ -1276,8 +1276,6 @@
     "types": {
       "system": "System",
       "consume": "Consume",
-      "conversation": "Conversation",
-      "topup": "Top Up",
       "recharge": "Top Up",
       "all": "All",
       "subscription": "Subscription",
@@ -1300,6 +1298,11 @@
     },
     "request-today": "Requests Today",
     "request-month": "Requests This Month",
+    "clear-usage-log": "Clear Records",
+    "clear-usage-log-title": "Clear All Usage Records",
+    "clear-usage-log-description": "This action is irreversible and will permanently delete all users' usage records. Please enter the administrator password to confirm.",
+    "password-required": "Password is required",
+    "root-password-placeholder": "Admin Password",
     "detail-info": {
       "input": "Input Price",
       "output": "Output Price",

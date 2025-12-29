@@ -27,9 +27,11 @@ const interruptMessage = "interrupted"
 
 func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncountable bool, detail *auth.SubscriptionUsageDetail, err error) {
 	db := utils.GetDBFromContext(c)
-	quota := buffer.GetQuota()
+	CollectQuotaWithDB(db, user, buffer, uncountable, detail, err)
+}
 
-	if user == nil || quota <= 0 {
+func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncountable bool, detail *auth.SubscriptionUsageDetail, err error) {
+	if user == nil {
 		return
 	}
 
@@ -37,6 +39,7 @@ func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncount
 		return
 	}
 
+	quota := buffer.GetQuota()
 	var quotaCost = quota
 	var quotaChange float32
 
@@ -63,7 +66,7 @@ func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncount
 	// Log usage
 	_ = admin.CreateUsageLog(db, &admin.UsageLog{
 		UserID:       user.GetID(db),
-		Type:         "conversation",
+		Type:         "consume",
 		Model:        buffer.GetModel(),
 		InputTokens:  buffer.CountInputToken(),
 		OutputTokens: buffer.CountOutputToken(false),
@@ -72,53 +75,8 @@ func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncount
 		IsPlan:       uncountable,
 		Detail:       detailText,
 	})
-}
 
-func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncountable bool, detail *auth.SubscriptionUsageDetail, err error) {
-	quota := buffer.GetQuota()
-
-	if user == nil || quota <= 0 {
-		return
-	}
-
-	if buffer.IsEmpty() || err != nil {
-		return
-	}
-
-	var quotaCost = quota
-	var quotaChange float32
-
-	if !uncountable {
-		user.UseQuota(db, quota)
-		quotaChange = -quota
-	} else {
-		quotaCost = 0
-	}
-
-	var detailText string
-	if detail != nil {
-		name := detail.ItemName
-		if name == "" {
-			name = detail.ItemID
-		}
-		total := "∞"
-		if detail.Total >= 0 {
-			total = fmt.Sprintf("%d", detail.Total)
-		}
-		detailText = fmt.Sprintf("订阅[%s] 用量：%d/%s (+%d)", name, detail.Used, total, detail.Increment)
-	}
-
-	_ = admin.CreateUsageLog(db, &admin.UsageLog{
-		UserID:       user.GetID(db),
-		Type:         "drawing",
-		Model:        buffer.GetModel(),
-		InputTokens:  buffer.CountInputToken(),
-		OutputTokens: buffer.CountOutputToken(false),
-		QuotaCost:    quotaCost,
-		QuotaChange:  quotaChange,
-		IsPlan:       uncountable,
-		Detail:       detailText,
-	})
+	admin.AnalyseRequest(buffer.GetModel(), buffer, err)
 }
 
 type partialChunk struct {

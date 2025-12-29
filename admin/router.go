@@ -46,4 +46,5 @@ func Register(app *gin.RouterGroup) {
 	app.POST("/admin/logger/delete", DeleteLoggerAPI)
 
 	app.GET("/admin/usage/list", UsageLogPaginationAPI)
+	app.POST("/admin/usage/clear", ClearUsageLogAPI)
 }

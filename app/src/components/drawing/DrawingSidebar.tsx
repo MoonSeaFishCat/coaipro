@@ -87,6 +87,7 @@ type DrawingSidebarProps = {
   onDeleteHistory?: (id: string) => void;
   onClearHistory?: () => void;
   className?: string;
+  onMobileTabChange?: (tab: "prepare" | "generate") => void;
 };
 
 const TAG_ICON_MAP: Record<string, ReactNode> = {
@@ -127,6 +128,7 @@ export default function DrawingSidebar({
   onApplyHistory,
   onDeleteHistory,
   onClearHistory,
+  onMobileTabChange,
 }: DrawingSidebarProps) {
   const { t } = useTranslation();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -269,7 +271,15 @@ export default function DrawingSidebar({
     >
       <div className="drawing-sidebar-top">
         <div className="drawing-sidebar-header">
-          <p className="drawing-sidebar-title">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden -ml-2"
+            onClick={() => onMobileTabChange?.("generate")}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          <p className="drawing-sidebar-title flex-1">
             {t("drawing.modelSelectorTitle")}
           </p>
           <Button

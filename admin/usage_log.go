@@ -60,6 +60,12 @@ func CreateUsageLog(db *sql.DB, log *UsageLog) error {
 	return err
 }
 
+// DeleteUsageLogs deletes all usage logs
+func DeleteUsageLogs(db *sql.DB) error {
+	_, err := globals.ExecDb(db, "DELETE FROM usage_log")
+	return err
+}
+
 // GetUsageLogPagination retrieves usage logs with pagination and filters
 func GetUsageLogPagination(db *sql.DB, page int64, username string, logType string, startDate string, endDate string) PaginationForm {
 	var logs []interface{}

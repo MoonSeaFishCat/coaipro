@@ -68,3 +68,20 @@ export async function getUsageLogList(
     };
   }
 }
+
+export async function clearUsageLog(password: string): Promise<UsageLogResponse> {
+  try {
+    const response = await axios.post("/admin/usage/clear", {
+      password: password,
+    });
+    return response.data as UsageLogResponse;
+  } catch (e) {
+    console.warn(e);
+    return {
+      status: false,
+      message: getErrorMessage(e),
+      data: [],
+      total: 0,
+    };
+  }
+}

@@ -11,8 +11,6 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Settings,
-  Monitor,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
@@ -26,8 +24,6 @@ export type DrawingMainState = {
   error?: string;
   modelName?: string;
   className?: string;
-  mobileTab?: "prepare" | "generate";
-  onMobileTabChange?: (tab: "prepare" | "generate") => void;
 };
 
 export default function DrawingMain({
@@ -37,8 +33,6 @@ export default function DrawingMain({
   error,
   modelName,
   className,
-  mobileTab,
-  onMobileTabChange,
 }: DrawingMainState) {
   const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -88,37 +82,8 @@ export default function DrawingMain({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
     >
-      {/* 手机端切换按钮 */}
-      <div className="md:hidden absolute top-4 left-4 z-40 flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "rounded-full bg-background/60 backdrop-blur-md border-none shadow-sm transition-all",
-            mobileTab === "generate" ? "bg-primary text-primary-foreground" : ""
-          )}
-          onClick={() => onMobileTabChange?.("generate")}
-        >
-          <Monitor className="w-4 h-4 mr-2" />
-          生成页
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "rounded-full bg-background/60 backdrop-blur-md border-none shadow-sm transition-all",
-            mobileTab === "prepare" ? "bg-primary text-primary-foreground" : ""
-          )}
-          onClick={() => onMobileTabChange?.("prepare")}
-        >
-          <Settings className="w-4 h-4 mr-2" />
-          设置
-        </Button>
-      </div>
-
       <div className={cn(
-        "drawing-main-board flex-1 overflow-hidden p-4 md:p-6 flex flex-col items-center justify-center w-full max-w-7xl min-h-0 mx-auto",
-        mobileTab === "prepare" && "hidden md:flex"
+        "drawing-main-board flex-1 overflow-hidden p-4 md:p-6 flex flex-col items-center justify-center w-full max-w-7xl min-h-0 mx-auto"
       )}>
         {status === "running" && (
           <div className="drawing-progress-card flex flex-col items-center gap-4 p-8 rounded-2xl border bg-card/50 backdrop-blur-sm">
