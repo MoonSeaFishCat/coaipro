@@ -30,11 +30,11 @@ func newClient(c []globals.ProxyConfig) *http.Client {
 	}
 
 	config := c[0]
-	if config.ProxyType == globals.NoneProxyType {
+	switch config.ProxyType {
+	case globals.NoneProxyType:
 		return client
-	}
 
-	if config.ProxyType == globals.HttpProxyType || config.ProxyType == globals.HttpsProxyType {
+	case globals.HttpProxyType, globals.HttpsProxyType:
 		proxyUrl, err := url.Parse(config.Proxy)
 		if len(config.Username) > 0 || len(config.Password) > 0 {
 			proxyUrl.User = url.UserPassword(config.Username, config.Password)
@@ -48,7 +48,8 @@ func newClient(c []globals.ProxyConfig) *http.Client {
 			Proxy:           http.ProxyURL(proxyUrl),
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-	} else if config.ProxyType == globals.Socks5ProxyType {
+
+	case globals.Socks5ProxyType:
 		var auth *proxy.Auth
 		if len(config.Username) > 0 || len(config.Password) > 0 {
 			auth = &proxy.Auth{

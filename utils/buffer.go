@@ -35,6 +35,7 @@ type Buffer struct {
 	TokenName       string                `json:"-"`
 	Charge          Charge                `json:"-"`
 	VisionRecall    bool                  `json:"-"`
+	ConversationID  int                   `json:"-"`
 }
 
 func initInputToken(model string, history []globals.Message) int {
@@ -178,7 +179,7 @@ func mixTools(source *globals.ToolCalls, target *globals.ToolCalls) *globals.Too
 	}
 
 	tools := make(globals.ToolCalls, 0)
-	arr := Collect[globals.ToolCall](*source, *target)
+	arr := Collect(*source, *target)
 
 	for _, tool := range arr {
 		idx, hit := hitTool(tool, tools)
@@ -324,6 +325,14 @@ func (b *Buffer) GetTokenName() string {
 
 func (b *Buffer) SetTokenName(tokenName string) {
 	b.TokenName = tokenName
+}
+
+func (b *Buffer) SetConversation(id int) {
+	b.ConversationID = id
+}
+
+func (b *Buffer) GetConversation() int {
+	return b.ConversationID
 }
 
 func (b *Buffer) GetRecordPrompts() string {

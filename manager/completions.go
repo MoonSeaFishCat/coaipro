@@ -36,7 +36,7 @@ func NativeChatHandler(c *gin.Context, user *auth.User, model string, message []
 	}
 
 	buffer := utils.NewBuffer(model, segment, channel.ChargeInstance.GetCharge(model))
-	hit, err := channel.NewChatRequestWithCache(
+	_, err := channel.NewChatRequestWithCache(
 		cache, buffer,
 		auth.GetGroup(db, user),
 		adaptercommon.CreateChatProps(&adaptercommon.ChatProps{
@@ -56,9 +56,8 @@ func NativeChatHandler(c *gin.Context, user *auth.User, model string, message []
 		return err.Error(), 0
 	}
 
-	if !hit {
-		CollectQuota(c, user, buffer, plan, usageDetail, err)
-	}
+	// 命中缓存也记录一次消费（若为缓存则配额为 0），便于审计
+	CollectQuota(c, user, buffer, plan, usageDetail, err)
 
 	return buffer.ReadWithDefault(defaultMessage), buffer.GetQuota()
 }

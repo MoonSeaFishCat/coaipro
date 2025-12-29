@@ -12,16 +12,15 @@ import Icon from "@/components/utils/Icon";
 import Tips from "@/components/Tips";
 import type { DrawingHistoryItem } from "@/utils/drawing-db.ts";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog.tsx";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogCancel,
+} from "@/components/ui/dialog.tsx";
 import {
   Award,
   Bolt,
@@ -128,7 +127,6 @@ export default function DrawingSidebar({
   onApplyHistory,
   onDeleteHistory,
   onClearHistory,
-  onMobileTabChange,
 }: DrawingSidebarProps) {
   const { t } = useTranslation();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -271,14 +269,6 @@ export default function DrawingSidebar({
     >
       <div className="drawing-sidebar-top">
         <div className="drawing-sidebar-header">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden -ml-2"
-            onClick={() => onMobileTabChange?.("generate")}
-          >
-            <X className="h-5 w-5" />
-          </Button>
           <p className="drawing-sidebar-title flex-1">
             {t("drawing.modelSelectorTitle")}
           </p>
@@ -299,11 +289,13 @@ export default function DrawingSidebar({
             className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            onClick={() => setHistoryOpen(false)}
           >
             <motion.div
               className="bg-card border shadow-lg rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-2">
@@ -312,8 +304,8 @@ export default function DrawingSidebar({
                 </div>
                 <div className="flex items-center gap-2">
                   {history.length > 0 && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    <Dialog>
+                      <DialogTrigger asChild>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -322,25 +314,25 @@ export default function DrawingSidebar({
                           <X className="w-4 h-4" />
                           <span>{t("drawing.clearHistory")}</span>
                         </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{t("are-you-sure")}</AlertDialogTitle>
-                          <AlertDialogDescription>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{t("are-you-sure")}</DialogTitle>
+                          <DialogDescription>
                             {t("drawing.clearHistoryConfirm")}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{t("conversation.cancel")}</AlertDialogCancel>
-                          <AlertDialogAction
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <DialogCancel>{t("conversation.cancel")}</DialogCancel>
+                          <Button
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => onClearHistory?.()}
                           >
                             {t("confirm")}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   )}
                   <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(false)}>
                     <X className="w-5 h-5" />

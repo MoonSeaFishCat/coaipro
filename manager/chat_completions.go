@@ -124,7 +124,7 @@ func sendTranshipmentResponse(c *gin.Context, form RelayForm, messages []globals
 	cache := utils.GetCacheFromContext(c)
 
 	buffer := utils.NewBuffer(form.Model, messages, channel.ChargeInstance.GetCharge(form.Model))
-	hit, err := channel.NewChatRequestWithCache(cache, buffer, auth.GetGroup(db, user), getChatProps(form, messages, buffer, think), func(data *globals.Chunk) error {
+	_, err := channel.NewChatRequestWithCache(cache, buffer, auth.GetGroup(db, user), getChatProps(form, messages, buffer, think), func(data *globals.Chunk) error {
 		buffer.WriteChunk(data)
 		return nil
 	})
@@ -138,9 +138,8 @@ func sendTranshipmentResponse(c *gin.Context, form RelayForm, messages []globals
 		return
 	}
 
-	if !hit {
-		CollectQuota(c, user, buffer, plan, detail, err)
-	}
+	// 缓存命中也记录一次消费（若为缓存则配额为 0），便于审计
+	CollectQuota(c, user, buffer, plan, detail, err)
 
 	tools := buffer.GetToolCalls()
 
@@ -232,7 +231,7 @@ func sendStreamTranshipmentResponse(c *gin.Context, form RelayForm, messages []g
 
 	go func() {
 		buffer := utils.NewBuffer(form.Model, messages, charge)
-		hit, err := channel.NewChatRequestWithCache(
+		_, err := channel.NewChatRequestWithCache(
 			cache, buffer, group, getChatProps(form, messages, buffer, think),
 			func(data *globals.Chunk) error {
 				buffer.WriteChunk(data)
@@ -255,9 +254,8 @@ func sendStreamTranshipmentResponse(c *gin.Context, form RelayForm, messages []g
 
 		partial <- getStreamTranshipmentForm(id, created, form, &globals.Chunk{Content: ""}, buffer, true, nil)
 
-		if !hit {
-			CollectQuota(c, user, buffer, plan, detail, err)
-		}
+		// 缓存命中也记录一次消费（若为缓存则配额为 0），便于审计
+		CollectQuota(c, user, buffer, plan, detail, err)
 
 		close(partial)
 	}()

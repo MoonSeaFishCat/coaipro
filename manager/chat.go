@@ -31,11 +31,7 @@ func CollectQuota(c *gin.Context, user *auth.User, buffer *utils.Buffer, uncount
 }
 
 func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncountable bool, detail *auth.SubscriptionUsageDetail, err error) {
-	if user == nil {
-		return
-	}
-
-	if buffer.IsEmpty() || err != nil {
+	if user == nil || buffer == nil || err != nil {
 		return
 	}
 
@@ -60,20 +56,21 @@ func CollectQuotaWithDB(db *sql.DB, user *auth.User, buffer *utils.Buffer, uncou
 		if detail.Total >= 0 {
 			total = fmt.Sprintf("%d", detail.Total)
 		}
-		detailText = fmt.Sprintf("订阅[%s] 用量：%d/%s (+%d)", name, detail.Used, total, detail.Increment)
+		detailText = fmt.Sprintf("(订阅消耗[%s] 用量：%d/%s)", name, detail.Used, total)
 	}
 
 	// Log usage
 	_ = admin.CreateUsageLog(db, &admin.UsageLog{
-		UserID:       user.GetID(db),
-		Type:         "consume",
-		Model:        buffer.GetModel(),
-		InputTokens:  buffer.CountInputToken(),
-		OutputTokens: buffer.CountOutputToken(false),
-		QuotaCost:    quotaCost,
-		QuotaChange:  quotaChange,
-		IsPlan:       uncountable,
-		Detail:       detailText,
+		UserID:         user.GetID(db),
+		Type:           "consume",
+		Model:          buffer.GetModel(),
+		InputTokens:    buffer.CountInputToken(),
+		OutputTokens:   buffer.CountOutputToken(false),
+		QuotaCost:      quotaCost,
+		QuotaChange:    quotaChange,
+		ConversationID: buffer.GetConversation(),
+		IsPlan:         uncountable,
+		Detail:         strings.TrimSpace(fmt.Sprintf("%s (%d→%d tokens) %s", buffer.GetModel(), buffer.CountInputToken(), buffer.CountOutputToken(false), detailText)),
 	})
 
 	admin.AnalyseRequest(buffer.GetModel(), buffer, err)
@@ -251,7 +248,8 @@ func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conve
 	}
 
 	buffer := utils.NewBuffer(model, segment, channel.ChargeInstance.GetCharge(model))
-	hit, err := createChatTask(conn, user, buffer, db, cache, model, instance, segment, thinkState, plan)
+	buffer.SetConversation(int(instance.GetId()))
+	_, err := createChatTask(conn, user, buffer, db, cache, model, instance, segment, thinkState, plan)
 
 	admin.AnalyseRequest(model, buffer, err)
 	if adapter.IsAvailableError(err) {
@@ -265,9 +263,8 @@ func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conve
 		return err.Error()
 	}
 
-	if !hit {
-		CollectQuota(conn.GetCtx(), user, buffer, plan, usageDetail, err)
-	}
+	// 命中缓存同样记录消费（quota 为 0 也可记录），方便审计
+	CollectQuota(conn.GetCtx(), user, buffer, plan, usageDetail, err)
 
 	if buffer.IsEmpty() {
 		conn.Send(globals.ChatSegmentResponse{

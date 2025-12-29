@@ -204,6 +204,8 @@ function Account() {
   const [loadingApiKey, setLoadingApiKey] = useState(false);
   const [openResetApiKey, setOpenResetApiKey] = useState(false);
 
+  const apiUrl = `${window.location.origin}/api/v1`;
+
   const getSystemKey = async () => {
     if (!init) return;
 
@@ -218,6 +220,13 @@ function Account() {
     await copyClipboard(apiKey);
     toast.success(t("api.copied"), {
       description: t("api.copied-description"),
+    });
+  }
+
+  async function copyApiUrl() {
+    await copyClipboard(apiUrl);
+    toast.success(t("api.copied"), {
+      description: t("api.proxy"),
     });
   }
 
@@ -406,10 +415,28 @@ function Account() {
         </DeeptrainOnly>
         <AccountCard
           title={"api.title"}
-          description={t("account.api-description")}
+          description={t("api.proxy-description")}
           icon={<Plug />}
         >
           <div className={`api-dialog`}>
+            <div className={`api-wrapper flex flex-row space-x-1 mb-4`}>
+              <Input
+                type={`text`}
+                value={apiUrl}
+                readOnly={true}
+                classNameWrapper={`grow`}
+                className={`text-xs h-8`}
+              />
+              <Button
+                variant={`default`}
+                className={`shrink-0`}
+                size={`icon-sm`}
+                onClick={copyApiUrl}
+              >
+                <Copy className={`h-3.5 w-3.5`} />
+              </Button>
+            </div>
+
             <div className={`api-wrapper flex flex-row space-x-1`}>
               <Button
                 variant={`outline`}

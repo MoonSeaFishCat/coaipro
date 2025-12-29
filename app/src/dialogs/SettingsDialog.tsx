@@ -42,6 +42,7 @@ import Github from "@/components/ui/icons/Github.tsx";
 import { isTauri } from "@/utils/desktop.ts";
 import { useDeeptrain } from "@/conf/env.ts";
 import ThemeToggle from "@/components/ThemeProvider.tsx";
+import { toast } from "sonner";
 
 function SettingsDialog() {
   const { t, i18n } = useTranslation();
@@ -372,6 +373,35 @@ function SettingsDialog() {
                         </AlertDialogHeader>
                       </AlertDialogContent>
                     </AlertDialog>
+                  </div>
+                  <div className={`item`}>
+                    <div className={`name`}>重置绘图状态</div>
+                    <div className={`grow`} />
+                    <Button
+                      size={`sm`}
+                      variant={`outline`}
+                      className={`set-action`}
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem("token");
+                          const response = await fetch(`${window.location.origin}/v1/images/reset`, {
+                            method: "POST",
+                            headers: {
+                              Authorization: token || "",
+                            },
+                          });
+                          if (response.ok) {
+                            toast.success("绘图状态已重置");
+                          } else {
+                            toast.error("重置失败");
+                          }
+                        } catch (e) {
+                          toast.error("重置失败: " + e);
+                        }
+                      }}
+                    >
+                      重置
+                    </Button>
                   </div>
                 </div>
               </div>

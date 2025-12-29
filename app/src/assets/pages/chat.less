@@ -205,20 +205,24 @@
 .sidebar.drawing-sidebar {
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1.25rem 1.75rem;
+  padding: 0;
   gap: 1.25rem;
   background: hsl(var(--background));
   overflow-y: auto;
   box-sizing: border-box;
-  width: 360px;
+  width: 0;
   flex-shrink: 0;
-  border-right: 1px solid hsl(var(--border));
-  opacity: 1;
-  pointer-events: auto;
-  transition: width 0.2s ease-in-out;
+  border-right: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: width 0.2s ease-in-out, opacity 0.2s ease-in-out, padding 0.2s ease-in-out;
 
   &.open {
     width: 360px;
+    padding: 1.5rem 1.25rem 1.75rem;
+    border-right: 1px solid hsl(var(--border));
+    opacity: 1;
+    pointer-events: auto;
   }
 
 .drawing-sidebar-top {
@@ -495,10 +499,12 @@
 
 @media (max-width: 768px) {
   .sidebar.drawing-sidebar {
-    padding: 1rem 1.25rem 1.5rem;
-    width: 100vw !important;
-    min-width: 100vw !important;
-    max-width: 100vw !important;
+    &.open {
+      padding: 1rem 1.25rem 1.5rem;
+      width: 100vw !important;
+      min-width: 100vw !important;
+      max-width: 100vw !important;
+    }
 
     &.hidden {
       display: none !important;

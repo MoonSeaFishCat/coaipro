@@ -24,13 +24,16 @@ const initialState: DrawingMainState = {
 
 const DRAWING_CACHE_KEY = "drawing_results";
 const DRAWING_HISTORY_KEY = "drawing_history_v2";
+const DRAWING_POLLING_KEY = "drawing_polling_active";
 
 function Drawing() {
   const { t } = useTranslation();
   const [mainState, setMainState] =
     useState<DrawingMainState>(initialState);
   const [submitting, setSubmitting] = useState(false);
-  const [polling, setPolling] = useState(false);
+  const [polling, setPolling] = useState(() => {
+    return localStorage.getItem(DRAWING_POLLING_KEY) === "true";
+  });
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [currentModel, setCurrentModel] = useState<Model | null>(null);
   const [history, setHistory] = useState<DrawingHistoryItem[]>([]);
@@ -125,6 +128,14 @@ function Drawing() {
     initData();
   }, []);
 
+  useEffect(() => {
+    if (polling) {
+      localStorage.setItem(DRAWING_POLLING_KEY, "true");
+    } else {
+      localStorage.removeItem(DRAWING_POLLING_KEY);
+    }
+  }, [polling]);
+
   // 监听状态变化保存到最新缓存（带异常处理）
   useEffect(() => {
     if (mainState.status === "success" && (mainState.images.length > 0 || mainState.message)) {
@@ -196,6 +207,7 @@ function Drawing() {
               setMainState(nextState);
               setSubmitting(false);
               setPolling(false);
+              localStorage.removeItem(DRAWING_POLLING_KEY);
               if (pollTimerRef.current) {
                 clearInterval(pollTimerRef.current);
                 pollTimerRef.current = null;
@@ -231,6 +243,7 @@ function Drawing() {
 
           setSubmitting(false);
           setPolling(false);
+          localStorage.removeItem(DRAWING_POLLING_KEY);
           if (pollTimerRef.current) {
             clearInterval(pollTimerRef.current);
             pollTimerRef.current = null;
@@ -268,9 +281,10 @@ function Drawing() {
         setPolling(false);
       } else if (result === "no_task") {
         // 如果后端明确返回 status: false，且当前不在提交/轮询中，说明确实没任务，释放按钮
-        if (!submitting && !polling) {
+        if (!submitting) {
           setSubmitting(false);
           setPolling(false);
+          localStorage.removeItem(DRAWING_POLLING_KEY);
         }
       }
     };
@@ -378,6 +392,7 @@ function Drawing() {
       } catch (error) {
         setSubmitting(false);
         setPolling(false);
+        localStorage.removeItem(DRAWING_POLLING_KEY);
         const friendly = getErrorMessage(error);
         setMainState({
           status: "error",

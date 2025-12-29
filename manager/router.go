@@ -18,6 +18,7 @@ func Register(app *gin.RouterGroup) {
 	app.POST("/v1/images/generations", ImagesRelayAPI)
 	app.POST("/v1/images/edits", ImagesRelayAPI)
 	app.GET("/v1/images/tasks", GetDrawingTasks)
+	app.POST("/v1/images/reset", ResetDrawingTasks)
 
 	// 注册会话管理API
 	RegisterSessionAPI(app)

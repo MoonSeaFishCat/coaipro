@@ -24,7 +24,7 @@ func ReadConf() {
 	viper.SetConfigFile(configFile)
 
 	if !IsFileExist(configFile) {
-		fmt.Println(fmt.Sprintf("[service] config.yaml not found, creating one from template: %s", configExampleFile))
+		fmt.Printf("[service] config.yaml not found, creating one from template: %s\n", configExampleFile)
 		if err := CopyFile(configExampleFile, configFile); err != nil {
 			fmt.Println(err)
 		}

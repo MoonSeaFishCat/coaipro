@@ -105,7 +105,7 @@ func processPersistentChatSession(db *sql.DB, cache *redis.Client, user *auth.Us
 	sm.UpdateSessionProgress(session.ID, "AI正在思考中...")
 
 	// 执行AI请求
-	hit, err := channel.NewChatRequestWithCache(
+	_, err := channel.NewChatRequestWithCache(
 		cache, buffer,
 		auth.GetGroup(db, user),
 		adaptercommon.CreateChatProps(chatProps, buffer),
@@ -146,10 +146,9 @@ func processPersistentChatSession(db *sql.DB, cache *redis.Client, user *auth.Us
 		return fmt.Errorf("request failed: %v", err)
 	}
 
-	// 收集配额（如果不是缓存命中）
-	if !hit && !plan {
-		CollectQuotaWithDB(db, user, buffer, plan, usageDetail, nil)
-	}
+	// 缓存命中或订阅用量也记录消费，便于审计
+	buffer.SetConversation(int(req.ConversationID))
+	CollectQuotaWithDB(db, user, buffer, plan, usageDetail, nil)
 
 	// 获取最终结果
 	result := buffer.ReadWithDefault("AI响应为空")

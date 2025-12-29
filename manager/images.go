@@ -235,6 +235,42 @@ func createRelayImageObject(c *gin.Context, form RelayImageForm, prompt string, 
 	})
 }
 
+func ResetDrawingTasks(c *gin.Context) {
+	username := utils.GetUserFromContext(c)
+	if username == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  false,
+			"message": "unauthorized",
+		})
+		return
+	}
+
+	db := utils.GetDBFromContext(c)
+	user := auth.GetUserByName(db, username)
+	if user == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"data":   nil,
+		})
+		return
+	}
+
+	// 将任务状态重置为 none
+	_, err := globals.ExecDb(db, "UPDATE drawing_task SET status = ?, data = NULL, error = NULL WHERE user_id = ?", "none", user.GetID(db))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": "database error: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  true,
+		"message": "drawing status reset success",
+	})
+}
+
 func GetDrawingTasks(c *gin.Context) {
 	username := utils.GetUserFromContext(c)
 	if username == "" {

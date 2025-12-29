@@ -16,7 +16,7 @@ import (
 
 type Hook func(message []globals.Message, token int) (string, error)
 
-func toWebSearchingMessage(db *sql.DB, cache *redis.Client, user *auth.User, _model string, message []globals.Message) []globals.Message {
+func toWebSearchingMessage(db *sql.DB, cache *redis.Client, user *auth.User, message []globals.Message) []globals.Message {
 	searchModel := globals.SearchModel
 	if searchModel == "" {
 		searchModel = globals.GPT3Turbo // default model
@@ -64,27 +64,26 @@ func toWebSearchingMessage(db *sql.DB, cache *redis.Client, user *auth.User, _mo
 	// User billing
 	if user != nil {
 		detail, ok := auth.HandleWebSearchSubscriptionUsage(db, cache, user)
+		var detailText string
+		var isPlan bool
+		var quota float32
+
 		if ok {
-			_, _ = globals.ExecDb(db, `
-				INSERT INTO usage_log (
-					user_id, type, model, input_tokens, output_tokens, quota_cost,
-					conversation_id, is_plan, amount, quota_change, subscription_level,
-					subscription_months, detail
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, user.GetID(db), "consume", "web-search", 0, 0, 0, 0, true, 0, 0, 0, 0,
-				fmt.Sprintf("联网搜索关键词: %s (订阅消耗[%s] 用量：%d/%d)", keyword, detail.ItemName, detail.Used, detail.Total))
+			isPlan = true
+			detailText = fmt.Sprintf("联网搜索关键词: %s (订阅消耗[%s] 用量：%d/%d)", keyword, detail.ItemName, detail.Used, detail.Total)
 		} else {
-			quota := globals.SearchQuota
-			user.UseQuota(db, float32(quota))
-			_, _ = globals.ExecDb(db, `
-				INSERT INTO usage_log (
-					user_id, type, model, input_tokens, output_tokens, quota_cost,
-					conversation_id, is_plan, amount, quota_change, subscription_level,
-					subscription_months, detail
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, user.GetID(db), "consume", "web-search", 0, 0, quota, 0, false, 0, -quota, 0, 0,
-				fmt.Sprintf("联网搜索关键词: %s", keyword))
+			quota = float32(globals.SearchQuota)
+			user.UseQuota(db, quota)
+			detailText = fmt.Sprintf("联网搜索关键词: %s", keyword)
 		}
+
+		_, _ = globals.ExecDb(db, `
+			INSERT INTO usage_log (
+				user_id, type, model, input_tokens, output_tokens, quota_cost,
+				conversation_id, is_plan, amount, quota_change, subscription_level,
+				subscription_months, detail
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, user.GetID(db), "consume", "web-search", 0, 0, quota, 0, isPlan, 0, -quota, 0, 0, detailText)
 	}
 
 	return utils.Insert(message, 0, globals.Message{
@@ -100,7 +99,7 @@ func ToChatSearched(db *sql.DB, cache *redis.Client, user *auth.User, instance *
 	segment := conversation.CopyMessage(instance.GetChatMessage(restart))
 
 	if instance.IsEnableWeb() {
-		segment = toWebSearchingMessage(db, cache, user, instance.GetModel(), segment)
+		segment = toWebSearchingMessage(db, cache, user, segment)
 	}
 
 	return segment
@@ -108,7 +107,7 @@ func ToChatSearched(db *sql.DB, cache *redis.Client, user *auth.User, instance *
 
 func ToSearched(db *sql.DB, cache *redis.Client, user *auth.User, model string, enable bool, message []globals.Message) []globals.Message {
 	if enable {
-		return toWebSearchingMessage(db, cache, user, model, message)
+		return toWebSearchingMessage(db, cache, user, message)
 	}
 
 	return message
