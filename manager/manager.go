@@ -6,9 +6,10 @@ import (
 	"chat/manager/conversation"
 	"chat/utils"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"strconv"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type WebsocketAuthForm struct {
@@ -23,9 +24,7 @@ func ParseAuth(c *gin.Context, token string) *auth.User {
 		return nil
 	}
 
-	if strings.HasPrefix(token, "Bearer ") {
-		token = token[7:]
-	}
+	token = strings.TrimPrefix(token, "Bearer ")
 
 	if strings.HasPrefix(token, "sk-") {
 		return auth.ParseApiKey(c, token)
@@ -82,7 +81,7 @@ func ChatAPI(c *gin.Context) {
 	buf := NewConnection(conn, authenticated, hash, 10)
 	buf.Handle(func(form *conversation.FormMessage) error {
 		cache := utils.GetCacheFromContext(c)
-		
+
 		switch form.Type {
 		case ChatType:
 			if instance.HandleMessage(db, form) {
@@ -106,7 +105,6 @@ func ChatAPI(c *gin.Context) {
 			if activeSession, exists := GetSessionManager(db, cache).GetConversationSession(instance.GetUserID(), instance.GetId()); exists {
 				CancelPersistentChat(activeSession.ID)
 			}
-			break
 		case ShareType:
 			instance.LoadSharing(db, form.Message)
 		case RestartType:

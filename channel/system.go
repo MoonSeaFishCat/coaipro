@@ -69,12 +69,14 @@ type mailState struct {
 }
 
 type SearchState struct {
-	Endpoint   string   `json:"endpoint" mapstructure:"endpoint"`
-	Crop       bool     `json:"crop" mapstructure:"crop"`
-	CropLen    int      `json:"croplen" mapstructure:"croplen"`
-	Engines    []string `json:"engines" mapstructure:"engines"`
-	ImageProxy bool     `json:"imageproxy" mapstructure:"imageproxy"`
-	SafeSearch int      `json:"safesearch" mapstructure:"safesearch"`
+	Endpoint    string   `json:"endpoint" mapstructure:"endpoint"`
+	Crop        bool     `json:"crop" mapstructure:"crop"`
+	CropLen     int      `json:"croplen" mapstructure:"croplen"`
+	Engines     []string `json:"engines" mapstructure:"engines"`
+	ImageProxy  bool     `json:"imageproxy" mapstructure:"imageproxy"`
+	SafeSearch  int      `json:"safesearch" mapstructure:"safesearch"`
+	SearchModel string   `json:"searchmodel" mapstructure:"searchmodel"`
+	SearchQuota float64  `json:"searchquota" mapstructure:"searchquota"`
 }
 
 type commonState struct {
@@ -188,6 +190,8 @@ func (c *SystemConfig) Load() {
 	globals.SearchEngines = c.GetSearchEngines()
 	globals.SearchImageProxy = c.GetImageProxy()
 	globals.SearchSafeSearch = c.Search.SafeSearch
+	globals.SearchModel = c.Search.SearchModel
+	globals.SearchQuota = c.GetSearchQuota()
 
 	methods := append([]string{}, c.Payment.Epay.Methods...)
 	for i := range methods {
@@ -363,6 +367,14 @@ func (c *SystemConfig) GetImageProxy() string {
 	}
 
 	return "False"
+}
+
+func (c *SystemConfig) GetSearchQuota() float64 {
+	if c.Search.SearchQuota <= 0 {
+		return 0.1
+	}
+
+	return c.Search.SearchQuota
 }
 
 func (c *SystemConfig) GetAppName() string {

@@ -7,10 +7,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/go-redis/redis/v8"
 )
 
 type SubscriptionUsageDetail struct {
@@ -140,7 +141,7 @@ func (u *User) SetSubscriptionLevel(db *sql.DB, level int) bool {
 func CountSubscriptionPrize(level int, month int) float32 {
 	plan := channel.PlanInstance.GetPlan(level)
 	base := plan.Price * float32(month)
-	
+
 	// 首先检查后台设置的折扣
 	if plan.Discounts != nil {
 		monthStr := strconv.Itoa(month)
@@ -148,7 +149,7 @@ func CountSubscriptionPrize(level int, month int) float32 {
 			return base * discount
 		}
 	}
-	
+
 	// 如果没有后台设置的折扣，使用默认折扣规则
 	if month >= 36 {
 		return base * 0.7
@@ -209,11 +210,11 @@ func BuySubscription(db *sql.DB, cache *redis.Client, user *User, level int, mon
 
 			// Log subscription upgrade
 			_ = createUsageLog(db, &usageLog{
-				UserID:             user.GetID(db),
-				Type:               "subscription",
-				Amount:             money,
-				SubscriptionLevel:  level,
-				Detail:             fmt.Sprintf("upgrade from level %d", before),
+				UserID:            user.GetID(db),
+				Type:              "subscription",
+				Amount:            money,
+				SubscriptionLevel: level,
+				Detail:            fmt.Sprintf("upgrade from level %d", before),
 			})
 
 			return nil
@@ -230,6 +231,32 @@ func HandleSubscriptionUsage(db *sql.DB, cache *redis.Client, user *User, model 
 
 	plan := user.GetPlan(db)
 	state, item, before, after := plan.IncreaseUsage(user, cache, model)
+	if !state || item == nil {
+		return nil, false
+	}
+
+	detail := &SubscriptionUsageDetail{
+		ItemID:    item.Id,
+		ItemName:  item.Name,
+		Total:     item.Value,
+		Used:      after,
+		Increment: after - before,
+	}
+
+	if detail.Increment <= 0 {
+		detail.Increment = 1
+	}
+
+	return detail, true
+}
+
+func HandleWebSearchSubscriptionUsage(db *sql.DB, cache *redis.Client, user *User) (*SubscriptionUsageDetail, bool) {
+	if disableSubscription() || user == nil {
+		return nil, false
+	}
+
+	plan := user.GetPlan(db)
+	state, item, before, after := plan.IncreaseWebSearchUsage(user, cache)
 	if !state || item == nil {
 		return nil, false
 	}

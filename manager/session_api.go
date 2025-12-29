@@ -83,9 +83,10 @@ func getSessionStatus(c *gin.Context) {
 		Quota:          session.Quota,
 	}
 
-	if session.Status == SessionCompleted {
+	switch session.Status {
+	case SessionCompleted:
 		response.Result = session.Result
-	} else if session.Status == SessionError {
+	case SessionError:
 		response.Error = session.Error
 	}
 
@@ -298,9 +299,10 @@ func getUserSessions(c *gin.Context) {
 			Quota:          session.Quota,
 		}
 
-		if session.Status == SessionCompleted {
+		switch session.Status {
+		case SessionCompleted:
 			response.Result = session.Result
-		} else if session.Status == SessionError {
+		case SessionError:
 			response.Error = session.Error
 		}
 
@@ -362,9 +364,10 @@ func getConversationSession(c *gin.Context) {
 		Quota:          session.Quota,
 	}
 
-	if session.Status == SessionCompleted {
+	switch session.Status {
+	case SessionCompleted:
 		response.Result = session.Result
-	} else if session.Status == SessionError {
+	case SessionError:
 		response.Error = session.Error
 	}
 

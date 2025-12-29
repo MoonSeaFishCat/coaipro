@@ -6,10 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/spf13/viper"
 )
 
 type PlanManager struct {
@@ -188,7 +189,7 @@ func ReleaseSubscriptionUsage(cache *redis.Client, user globals.AuthLike, t stri
 }
 
 func (p *Plan) GetUsage(user globals.AuthLike, db *sql.DB, cache *redis.Client) UsageMap {
-	return utils.EachObject[PlanItem, Usage](p.Items, func(usage PlanItem) (string, Usage) {
+	return utils.EachObject(p.Items, func(usage PlanItem) (string, Usage) {
 		return usage.Id, usage.GetUsageForm(user, db, cache)
 	})
 }
@@ -252,6 +253,17 @@ func (p *PlanItem) Release(user globals.AuthLike, cache *redis.Client) bool {
 func (p *Plan) IncreaseUsage(user globals.AuthLike, cache *redis.Client, model string) (bool, *PlanItem, int64, int64) {
 	for i := range p.Items {
 		if utils.Contains(model, p.Items[i].Models) {
+			state, before, after := p.Items[i].Increase(user, cache)
+			return state, &p.Items[i], before, after
+		}
+	}
+
+	return false, nil, 0, 0
+}
+
+func (p *Plan) IncreaseWebSearchUsage(user globals.AuthLike, cache *redis.Client) (bool, *PlanItem, int64, int64) {
+	for i := range p.Items {
+		if p.Items[i].Id == "web_search" {
 			state, before, after := p.Items[i].Increase(user, cache)
 			return state, &p.Items[i], before, after
 		}

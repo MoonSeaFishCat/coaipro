@@ -791,6 +791,13 @@
       "searchEnginesSearchPlaceholder": "Please enter the search engine name, ex: Google",
       "searchEnginesEmptyTip": "When the search engine is empty, the default search engine configured in SearXNG is used by default",
       "searchSafeSearch": "SafeSearch Mode",
+      "searchModel": "Search Preprocessing Model",
+      "searchModelPlaceholder": "Select a model for search keyword preprocessing",
+      "searchQuota": "Search Quota Cost",
+      "searchLLMExtract": "Enable LLM Keyword Extraction",
+      "searchWebSearch": "Web Search",
+      "searchWebSearchPlaceholder": "Enter the display name for Web Search",
+      "searchWebSearchValueTip": "Set the available times for Web Search, -1 for unlimited",
       "searchSafeSearchModes": {
         "none": "Turn off",
         "moderation": "Medium",
@@ -883,10 +890,6 @@
       "wechatPayCertificate": "WeChat Payment Platform Certificate",
       "wechatPayCertificatePlaceholder": "Paste your WeChat Pay platform certificate here",
       "wechatPayCertificateTip": "The merchant receives the returned content of the API v3 interface, and needs to use the public key of the certificate for verification. In addition, some sensitive information parameters (such as name, ID number) also need to be encrypted with the public key of the certificate for transmission. For details, see [WeChat Payment Platform Certificate] (https://pay.weixin.qq.com/doc/v3/merchant/4012068814)",
-      "searchLLMExtract": "Enable LLM keyword extraction",
-      "searchLLMExtractTip": "Using the LLM model to intelligently extract search keywords can improve search accuracy",
-      "searchLLMModel": "Keyword extraction model",
-      "searchLLMModelPlaceholder": "Select a model for extracting keywords",
       "securityBlacklistIPs": "Blacklist IP",
       "securityBlacklistIPsPlaceholder": "Please enter the blacklist IP",
       "securityWhitelistIPs": "Whitelisted IP",
@@ -936,7 +939,10 @@
         "prompt": "Custom Prompt",
         "promptPlaceholder": "{max_len} can be used as a placeholder",
         "tip": "Use LLM to automatically summarize and set the session title after the first round of conversations. When the custom prompt word is set to empty, the default prompt word in the default configuration in CoAI is used."
-      }
+      },
+      "searchLLMExtractTip": "Using the LLM model to intelligently extract search keywords can improve search accuracy",
+      "searchLLMModel": "Keyword extraction model",
+      "searchLLMModelPlaceholder": "Select a model for extracting keywords"
     },
     "user": "Users",
     "invitation-code": "Invitation Code",

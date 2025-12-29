@@ -24,12 +24,11 @@ func NativeChatHandler(c *gin.Context, user *auth.User, model string, message []
 		}
 	}()
 
-	segment := web.ToSearched(enableWeb, message)
-	thinkState := globals.ResolveThinkingPreference(model, nil)
-	segment = utils.ApplyThinkingDirective(segment, thinkState)
-
 	db := utils.GetDBFromContext(c)
 	cache := utils.GetCacheFromContext(c)
+	segment := web.ToSearched(db, cache, user, enableWeb, message)
+	thinkState := globals.ResolveThinkingPreference(model, nil)
+	segment = utils.ApplyThinkingDirective(segment, thinkState)
 	check, plan, usageDetail := auth.CanEnableModelWithSubscription(db, cache, user, model, segment)
 
 	if check != nil {

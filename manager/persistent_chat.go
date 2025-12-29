@@ -268,11 +268,12 @@ func (psh *ProgressStreamHandler) GetSessionStatus() map[string]interface{} {
 		"last_activity":   psh.Session.LastActivity,
 	}
 
-	if psh.Session.Status == SessionCompleted {
+	switch psh.Session.Status {
+	case SessionCompleted:
 		status["result"] = psh.Session.Result
 		status["quota"] = psh.Session.Quota
 		status["completed_at"] = psh.Session.CompletedAt
-	} else if psh.Session.Status == SessionError {
+	case SessionError:
 		status["error"] = psh.Session.Error
 		status["completed_at"] = psh.Session.CompletedAt
 	}
@@ -325,20 +326,23 @@ func PersistentChatHandler(c *gin.Context, conn *Connection, user *auth.User, in
 	userID := auth.GetId(db, user)
 
 	if existingSession, exists := sessionManager.GetConversationSession(userID, instance.GetId()); exists {
-		if existingSession.Status == SessionPending || existingSession.Status == SessionProcessing {
-			// 如果有活跃会话且是restart，取消旧会话
-			if restart {
-				CancelPersistentChat(existingSession.ID)
-			} else {
-				// 返回现有会话ID
-				return existingSession.ID, nil
-			}
+		switch existingSession.Status {
+		case SessionPending:
+			// ...
+		case SessionProcessing:
+			// ...
+		}
+		if restart {
+			CancelPersistentChat(existingSession.ID)
+		} else {
+			// 返回现有会话ID
+			return existingSession.ID, nil
 		}
 	}
 
 	// 准备聊天数据
 	model := instance.GetModel()
-	segment := adapter.ClearMessages(model, web.ToChatSearched(instance, restart))
+	segment := adapter.ClearMessages(model, web.ToChatSearched(db, cache, user, instance, restart))
 	segment = utils.ApplyThinkingDirective(segment, instance.GetThink())
 
 	// 构建持久化聊天请求

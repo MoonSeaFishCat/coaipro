@@ -40,6 +40,8 @@ var SearchCropLength int
 var SearchEngines string    // e.g. "google,bing"
 var SearchImageProxy string // e.g. "True", "False"
 var SearchSafeSearch int    // e.g. 0: None, 1: Moderation, 2: Strict
+var SearchModel string
+var SearchQuota float64
 
 type EpayConfig struct {
 	Enabled     bool
@@ -71,9 +73,7 @@ func OriginIsAllowed(uri string) bool {
 		return true
 	}
 
-	if strings.HasPrefix(instance.Host, "www.") {
-		instance.Host = instance.Host[4:]
-	}
+	instance.Host = strings.TrimPrefix(instance.Host, "www.")
 
 	return in(instance.Host, AllowedOrigins)
 }

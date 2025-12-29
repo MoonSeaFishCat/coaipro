@@ -140,15 +140,12 @@ func createStopSignal(conn *Connection) chan bool {
 			}
 		}()
 
-		for {
-			select {
-			case <-ticker.C:
-				state := conn.PeekStop() != nil // check the stop state
-				stopSignal <- state
+		for range ticker.C {
+			state := conn.PeekStop() != nil // check the stop state
+			stopSignal <- state
 
-				if state {
-					break
-				}
+			if state {
+				return
 			}
 		}
 	}(conn, stopSignal)
@@ -223,21 +220,30 @@ func createChatTask(
 		}
 	}()
 
-	for {
+	for data := range chunkChan {
+		if data.Error != nil && data.Error.Error() == interruptMessage {
+			// skip the interrupt message
+			continue
+		}
+
+		hit = data.Hit
+		err = data.Error
+
+		if data.End {
+			return
+		}
+
 		select {
-		case data := <-chunkChan:
-			if data.Error != nil && data.Error.Error() == interruptMessage {
-				// skip the interrupt message
-				continue
-			}
-
-			hit = data.Hit
-			err = data.Error
-
-			if data.End {
-				return
-			}
-
+		case <-stopSignal:
+			globals.Info(fmt.Sprintf("client stopped the chat request (model: %s, client: %s)", model, conn.GetCtx().ClientIP()))
+			_ = conn.SendClient(globals.ChatSegmentResponse{
+				Quota: buffer.GetQuota(),
+				End:   true,
+				Plan:  plan,
+			})
+			interruptSignal <- errors.New("signal")
+			return
+		default:
 			if err := conn.SendClient(globals.ChatSegmentResponse{
 				Message: buffer.WriteChunk(data.Chunk),
 				Quota:   buffer.GetQuota(),
@@ -248,22 +254,9 @@ func createChatTask(
 				interruptSignal <- err
 				return hit, nil
 			}
-
-		case signal := <-stopSignal:
-			// if stop signal is received
-			if signal {
-				globals.Info(fmt.Sprintf("client stopped the chat request (model: %s, client: %s)", model, conn.GetCtx().ClientIP()))
-				_ = conn.SendClient(globals.ChatSegmentResponse{
-					Quota: buffer.GetQuota(),
-					End:   true,
-					Plan:  plan,
-				})
-				interruptSignal <- errors.New("signal")
-
-				return
-			}
 		}
 	}
+	return
 }
 
 func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conversation, restart bool) string {
@@ -280,7 +273,7 @@ func ChatHandler(conn *Connection, user *auth.User, instance *conversation.Conve
 	cache := conn.GetCache()
 
 	model := instance.GetModel()
-	segment := adapter.ClearMessages(model, web.ToChatSearched(instance, restart))
+	segment := adapter.ClearMessages(model, web.ToChatSearched(db, cache, user, instance, restart))
 	thinkState := instance.GetThink()
 	segment = utils.ApplyThinkingDirective(segment, thinkState)
 

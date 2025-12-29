@@ -184,6 +184,22 @@ function reducer(state: PlanConfig, action: Record<string, any>): PlanConfig {
           return plan;
         }),
       };
+    case "add-item-predefined":
+      return {
+        ...state,
+        plans: state.plans.map((plan: Plan) => {
+          if (plan.level === action.payload.level) {
+            return {
+              ...plan,
+              items: [
+                ...plan.items,
+                action.payload.item,
+              ],
+            };
+          }
+          return plan;
+        }),
+      };
     case "set-item-models":
       return {
         ...state,
@@ -328,6 +344,7 @@ type ImportActionItem = {
 
 function ImportAction({ plans, level, dispatch }: ImportActionProps) {
   const { t } = useTranslation();
+
   const usableItems = useMemo((): ImportActionItem[] => {
     const raw = plans.filter((p: Plan) => p.level !== level);
     return raw
@@ -346,6 +363,26 @@ function ImportAction({ plans, level, dispatch }: ImportActionProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
+        <DropdownMenuItem
+          onClick={() => {
+            dispatch({
+              type: "add-item-predefined",
+              payload: {
+                level,
+                item: {
+                  id: "web_search",
+                  name: t("admin.system.searchWebSearch"),
+                  value: 100,
+                  icon: "Globe",
+                  models: [],
+                },
+              },
+            });
+          }}
+        >
+          <Plus className={`h-4 w-4 mr-2`} />
+          {t("admin.system.searchWebSearch")}
+        </DropdownMenuItem>
         {usableItems.map(
           ({ level: from, item }: ImportActionItem, index: number) => (
             <DropdownMenuItem
@@ -581,38 +618,36 @@ function PlanConfig() {
                     />
                   </div>
 
-                  {!stacked && (
-                    <>
-                      <div className={`plan-editor-row`}>
-                        <p className={`plan-editor-label mr-2`}>
-                          {t(`admin.plan.item-models`)}
-                          <Tips content={t("admin.plan.item-models-tip")} />
-                        </p>
-                        <MultiCombobox
-                          align={`start`}
-                          value={item.models}
-                          onChange={(value: string[]) => {
-                            formDispatch({
-                              type: "set-item-models",
-                              payload: {
-                                level: plan.level,
-                                models: value,
-                                index,
-                              },
-                            });
-                          }}
-                          placeholder={t(`admin.plan.item-models-placeholder`, {
-                            length: item.models.length,
-                          })}
-                          searchPlaceholder={t(
-                            `admin.plan.item-models-search-placeholder`,
-                          )}
-                          list={channelModels}
-                          className={`w-full max-w-full`}
-                        />
-                      </div>
-                    </>
-                  )}
+                      {!stacked && item.id !== "web_search" && (
+                        <div className={`plan-editor-row`}>
+                          <p className={`plan-editor-label mr-2`}>
+                            {t(`admin.plan.item-models`)}
+                            <Tips content={t("admin.plan.item-models-tip")} />
+                          </p>
+                          <MultiCombobox
+                            align={`start`}
+                            value={item.models}
+                            onChange={(value: string[]) => {
+                              formDispatch({
+                                type: "set-item-models",
+                                payload: {
+                                  level: plan.level,
+                                  models: value,
+                                  index,
+                                },
+                              });
+                            }}
+                            placeholder={t(`admin.plan.item-models-placeholder`, {
+                              length: item.models.length,
+                            })}
+                            searchPlaceholder={t(
+                              `admin.plan.item-models-search-placeholder`,
+                            )}
+                            list={channelModels}
+                            className={`w-full max-w-full`}
+                          />
+                        </div>
+                      )}
                   <div
                     className={cn(
                       `flex flex-row gap-1`,

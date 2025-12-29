@@ -830,9 +830,10 @@ function Common({ form, data, dispatch, onChange }: CompProps<CommonState>) {
   );
 }
 
-function Search({ data, dispatch, onChange }: CompProps<SearchState>) {
+function Search({ data, dispatch, onChange}: CompProps<SearchState>) {
   const { t } = useTranslation();
 
+  const supportModels = useSelector(selectSupportModels);
   const [search, setSearch] = useState<string>("");
   const [searchDialog, setSearchDialog] = useState<boolean>(false);
   const [searchResult, setSearchResult] = useState<string>("");
@@ -964,6 +965,34 @@ function Search({ data, dispatch, onChange }: CompProps<SearchState>) {
           list={["none", "moderation", "strict"]}
           listTranslated={`admin.system.searchSafeSearchModes`}
           hideSearchBar
+        />
+      </ParagraphItem>
+      <ParagraphItem>
+        <Label>{t("admin.system.searchModel")}</Label>
+        <Combobox
+          value={data.searchmodel || ""}
+          onChange={(value) => {
+            dispatch({
+              type: "update:search.searchmodel",
+              value: value,
+            });
+          }}
+          list={supportModels.map((item) => item.id)}
+          placeholder={t("admin.system.searchModelPlaceholder")}
+        />
+      </ParagraphItem>
+      <ParagraphItem>
+        <Label>{t("admin.system.searchQuota")}</Label>
+        <NumberInput
+          value={data.searchquota}
+          onValueChange={(value) => {
+            dispatch({
+              type: "update:search.searchquota",
+              value: value,
+            });
+          }}
+          min={0}
+          step={0.1}
         />
       </ParagraphItem>
       <ParagraphFooter>

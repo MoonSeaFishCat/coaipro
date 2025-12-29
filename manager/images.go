@@ -68,9 +68,7 @@ func ImagesRelayAPI(c *gin.Context) {
 
 	created := time.Now().Unix()
 
-	if strings.HasSuffix(form.Model, "-official") {
-		form.Model = strings.TrimSuffix(form.Model, "-official")
-	}
+	form.Model = strings.TrimSuffix(form.Model, "-official")
 
 	check := auth.CanEnableModel(db, user, form.Model, []globals.Message{})
 	if check != nil {

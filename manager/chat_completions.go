@@ -73,7 +73,7 @@ func ChatRelayAPI(c *gin.Context) {
 		suffix := strings.TrimPrefix(form.Model, "web-")
 
 		form.Model = suffix
-		messages = web.ToSearched(true, messages)
+		messages = web.ToSearched(db, cache, user, true, messages)
 	}
 
 	if strings.HasSuffix(form.Model, "-official") {
@@ -166,7 +166,7 @@ func sendTranshipmentResponse(c *gin.Context, form RelayForm, messages []globals
 			CompletionTokens: buffer.CountOutputToken(false),
 			TotalTokens:      buffer.CountToken(),
 		},
-		Quota: utils.Multi[*float32](form.Official, nil, utils.ToPtr(buffer.GetQuota())),
+		Quota: utils.Multi(form.Official, nil, utils.ToPtr(buffer.GetQuota())),
 	})
 }
 
@@ -217,7 +217,7 @@ func getStreamTranshipmentForm(id string, created int64, form RelayForm, data *g
 			CompletionTokens: buffer.CountOutputToken(true),
 			TotalTokens:      buffer.CountToken(),
 		},
-		Quota: utils.Multi[*float32](form.Official, nil, utils.ToPtr(buffer.GetQuota())),
+		Quota: utils.Multi(form.Official, nil, utils.ToPtr(buffer.GetQuota())),
 		Error: err,
 	}
 }
@@ -260,7 +260,6 @@ func sendStreamTranshipmentResponse(c *gin.Context, form RelayForm, messages []g
 		}
 
 		close(partial)
-		return
 	}()
 
 	c.Stream(func(w io.Writer) bool {

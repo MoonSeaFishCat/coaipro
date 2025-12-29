@@ -100,6 +100,9 @@ func NumTokensFromResponse(response string, model string) int {
 }
 
 func CountInputQuota(charge Charge, token int) float32 {
+	if charge == nil {
+		return 0
+	}
 	if charge.GetType() == globals.TokenBilling {
 		return float32(token) / 1000 * charge.GetInput()
 	}
@@ -108,6 +111,9 @@ func CountInputQuota(charge Charge, token int) float32 {
 }
 
 func CountOutputToken(charge Charge, token int) float32 {
+	if charge == nil {
+		return 0
+	}
 	switch charge.GetType() {
 	case globals.TokenBilling:
 		return float32(token) / 1000 * charge.GetOutput()

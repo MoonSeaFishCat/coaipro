@@ -433,11 +433,8 @@ func (sm *SessionManager) startCleanupTimer() {
 	ticker := time.NewTicker(10 * time.Minute)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			sm.cleanupOldSessions()
-		}
+	for range ticker.C {
+		sm.cleanupOldSessions()
 	}
 }
 

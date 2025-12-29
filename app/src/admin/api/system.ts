@@ -49,8 +49,8 @@ export type SearchState = {
   engines: string[];
   imageproxy: boolean;
   safesearch: number;
-  llm_extract: boolean;
-  llm_model: string;
+  searchmodel: string;
+  searchquota: number;
 };
 
 export type SecurityState = {
@@ -224,8 +224,8 @@ export const initialSystemState: SystemProps = {
     engines: [],
     imageproxy: false,
     safesearch: 0,
-    llm_extract: false,
-    llm_model: "",
+    searchmodel: "",
+    searchquota: 0.1,
   },
   common: {
     article: [],
