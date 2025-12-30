@@ -301,8 +301,8 @@ function Drawing() {
         fetchTaskResults();
         pollTimerRef.current = setInterval(async () => {
           await fetchTaskResults();
-        }, 3000);
-      }, 2000); 
+        }, 5000);
+      }, 3000); 
 
       return () => {
         clearTimeout(timer);
@@ -340,34 +340,16 @@ function Drawing() {
       }
 
       const token = getMemory(tokenField);
-      const isV1Images =
-        payload.modelId === "gpt-image-1-vip" ||
-        payload.modelId === "sora_image";
+      const endpoint = `${apiEndpoint}/v1/images/generations`;
 
-      const endpoint = isV1Images
-        ? (payload.image ? `${apiEndpoint}/v1/images/edits` : `${apiEndpoint}/v1/images/generations`)
-        : `${apiEndpoint}/v1/chat/completions`;
-
-      const requestBody = isV1Images
-        ? {
-            model: payload.modelId,
-            prompt: payload.prompt,
-            image: payload.image,
-            n: payload.n,
-            size: payload.size,
-          }
-        : {
-            model: payload.modelId,
-            temperature: 1,
-            messages: [
-              { role: "system", content: " " },
-              {
-                role: "user",
-                content: `${payload.prompt};${payload.n} image, ratio ${payload.size}`,
-              },
-            ],
-            stream: true,
-          };
+      const requestBody = {
+        model: payload.modelId,
+        task: true,
+        prompt: payload.prompt,
+        image: payload.image,
+        size: payload.size,
+        n: payload.n,
+      };
 
       try {
         const response = await fetch(endpoint, {

@@ -18,12 +18,14 @@ import {
 import { updateMessage } from "./chat.ts";
 import i18n from "@/i18n.ts";
 
-type ProgressStage = "processing" | "initializing" | "connecting" | "thinking";
+type ProgressStage = "searching" | "processing" | "initializing" | "connecting" | "thinking";
 
-function createProgressProcessor() {
+function createProgressProcessor(initialStage?: ProgressStage) {
   let outputStarted = false;
+  let currentStage: ProgressStage | null = initialStage ?? null;
 
   const stagePatterns: Array<{ stage: ProgressStage; re: RegExp }> = [
+    { stage: "searching", re: /正在(联网)?(搜索|检索)(中)?(?:\.{3}|…{1,3})?/g },
     { stage: "processing", re: /正在处理您的请求(?:\.{3}|…{1,3})?/g },
     { stage: "initializing", re: /正在初始化AI请求(?:\.{3}|…{1,3})?/g },
     { stage: "connecting", re: /正在连接AI服务(?:\.{3}|…{1,3})?/g },
@@ -67,7 +69,9 @@ function createProgressProcessor() {
     const raw = progress ?? "";
 
     if (!outputStarted) {
-      const stage = getLastStageInText(raw);
+      const stage = getLastStageInText(raw) || currentStage;
+      if (stage) currentStage = stage;
+      
       const cleaned = stripMeta(raw);
       const hasRealOutput = cleaned.trim().length > 0;
 
@@ -125,7 +129,21 @@ export const startSession = (sessionId: string, conversationId: number, model: s
     dispatch(addSession(session));
     dispatch(setCurrentSession(sessionId));
 
-    const processProgress = createProgressProcessor();
+    const isWebEnabled = state.chat.web;
+    const initialStage: ProgressStage | undefined = isWebEnabled ? "searching" : "processing";
+    const processProgress = createProgressProcessor(initialStage);
+
+    // 立即显示初始状态
+    dispatch(
+      updateMessage({
+        id: conversationId,
+        message: {
+          message: i18n.t(`progress.${initialStage}`),
+          end: false,
+          replace: true,
+        },
+      }),
+    );
 
     const progressStream = new SessionProgressStream(sessionId, {
       onProgress: (progress: string) => {
@@ -349,6 +367,7 @@ export function useSessionActions() {
   return {
     // 创建新会话（当WebSocket接收到会话ID时调用）
     createSession: (sessionId: string, conversationId: number, model: string) => {
+      const state = (dispatch as any)((_: any, getState: any) => getState());
       const session: SessionStatus = {
         session_id: sessionId,
         conversation_id: conversationId,
@@ -364,7 +383,21 @@ export function useSessionActions() {
       dispatch(addSession(session));
       dispatch(setCurrentSession(sessionId));
 
-      const processProgress = createProgressProcessor();
+      const isWebEnabled = (state as any).chat.web;
+      const initialStage: ProgressStage | undefined = isWebEnabled ? "searching" : "processing";
+      const processProgress = createProgressProcessor(initialStage);
+
+      // 立即显示初始状态
+      dispatch(
+        updateMessage({
+          id: conversationId,
+          message: {
+            message: i18n.t(`progress.${initialStage}`),
+            end: false,
+            replace: true,
+          },
+        }),
+      );
       
       // 立即开始监听进度流
       const progressStream = new SessionProgressStream(sessionId, {

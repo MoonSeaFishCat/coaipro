@@ -43,7 +43,37 @@ type RelayForm struct {
 	ToolChoice        *interface{}
 	Official          bool                   `json:"official"`
 	Think             *bool                  `json:"think,omitempty"`
+	Task              bool                   `json:"task"`
 	ExtraBody         map[string]interface{} `json:"extra_body,omitempty"`
+}
+
+func (f RelayForm) RelayImageForm() RelayImageForm {
+	form := RelayImageForm{
+		Model:  f.Model,
+		Prompt: transformContent(f.Messages[len(f.Messages)-1].Content),
+	}
+
+	// allow drawing params to pass through when callers still hit chat completions with task=true
+	if f.ExtraBody != nil {
+		if v, ok := f.ExtraBody["image"].(string); ok {
+			form.Image = v
+		}
+		if v, ok := f.ExtraBody["size"].(string); ok {
+			form.Size = v
+		}
+		if v, ok := f.ExtraBody["type"].(string); ok {
+			form.Type = v
+		}
+		if v, ok := f.ExtraBody["watermark"].(bool); ok {
+			form.Watermark = v
+		}
+		if v, ok := f.ExtraBody["n"].(float64); ok { // json numbers decode to float64
+			n := int(v)
+			form.N = &n
+		}
+	}
+
+	return form
 }
 
 type Choice struct {
@@ -111,6 +141,7 @@ type RelayImageForm struct {
 	Size      string `json:"size,omitempty"`
 	Type      string `json:"type,omitempty"`
 	Watermark bool   `json:"watermark,omitempty"`
+	Task      bool   `json:"task,omitempty"`
 }
 
 type RelayImageData struct {

@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"chat/adapter"
 	adaptercommon "chat/adapter/common"
 	"chat/adapter/openai"
 	"chat/admin"
@@ -76,7 +77,12 @@ func ImagesRelayAPI(c *gin.Context) {
 		return
 	}
 
-	createRelayImageObject(c, form, prompt, created, user, supportRelayPlan())
+	if form.Task {
+		createRelayImageObject(c, form, prompt, created, user, supportRelayPlan())
+		return
+	}
+
+	createRelayImageImmediate(c, form, prompt, created, user, supportRelayPlan())
 }
 
 func getImageProps(form RelayImageForm, messages []globals.Message, buffer *utils.Buffer) *adaptercommon.ChatProps {
@@ -232,6 +238,111 @@ func createRelayImageObject(c *gin.Context, form RelayImageForm, prompt string, 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  true,
 		"message": "task started",
+	})
+}
+
+func createRelayImageImmediate(c *gin.Context, form RelayImageForm, prompt string, created int64, user *auth.User, plan bool) {
+	db := utils.GetDBFromContext(c)
+	cache := utils.GetCacheFromContext(c)
+	messages := []globals.Message{
+		{
+			Role:    globals.User,
+			Content: prompt,
+		},
+	}
+
+	n := 1
+	if form.N != nil {
+		n = *form.N
+	}
+
+	// DALLE 模型直接走 Image API，同步返回
+	if globals.IsOpenAIDalleModel(form.Model) {
+		buffer := utils.NewBuffer(form.Model, messages, channel.ChargeInstance.GetCharge(form.Model))
+		ticker := channel.ConduitInstance.GetTicker(form.Model, auth.GetGroup(db, user))
+		if ticker == nil || ticker.IsEmpty() {
+			sendErrorResponse(c, fmt.Errorf("no channel available"), "server_error")
+			return
+		}
+
+		var urls []string
+		var b64s []string
+		var err error
+
+		for !ticker.IsDone() && len(urls) == 0 && len(b64s) == 0 {
+			if chanInstance := ticker.Next(); chanInstance != nil {
+				instance := openai.NewChatInstance(chanInstance.GetEndpoint(), chanInstance.GetRandomSecret())
+				urls, b64s, err = instance.CreateImageRequest(openai.ImageProps{
+					Model:     form.Model,
+					Prompt:    prompt,
+					Image:     form.Image,
+					Size:      openai.ImageSize(form.Size),
+					N:         n,
+					Type:      form.Type,
+					Watermark: form.Watermark,
+				})
+				if adapter.IsSkipError(err) {
+					return
+				}
+				if err == nil {
+					break
+				}
+			} else {
+				break
+			}
+		}
+
+		admin.AnalyseRequest(form.Model, buffer, err)
+		if err != nil {
+			auth.RevertSubscriptionUsage(db, cache, user, form.Model)
+			sendErrorResponse(c, err)
+			return
+		}
+
+		CollectQuotaWithDB(db, user, buffer, plan, nil, err)
+		var data []RelayImageData
+		for i := 0; i < len(urls) || i < len(b64s); i++ {
+			var url, b64 string
+			if i < len(urls) {
+				url = urls[i]
+			}
+			if i < len(b64s) {
+				b64 = b64s[i]
+			}
+			data = append(data, RelayImageData{Url: url, B64Json: b64})
+		}
+
+		c.JSON(http.StatusOK, RelayImageResponse{
+			Created: created,
+			Data:    data,
+		})
+		return
+	}
+
+	// 非 DALLE 模型：通过 Chat API 获取图片 markdown，再解析
+	buffer := utils.NewBuffer(form.Model, messages, channel.ChargeInstance.GetCharge(form.Model))
+	_, err := channel.NewChatRequestWithCache(cache, buffer, auth.GetGroup(db, user), getImageProps(form, messages, buffer), func(data *globals.Chunk) error {
+		buffer.WriteChunk(data)
+		return nil
+	})
+
+	admin.AnalyseRequest(form.Model, buffer, err)
+	if err != nil {
+		auth.RevertSubscriptionUsage(db, cache, user, form.Model)
+		sendErrorResponse(c, err)
+		return
+	}
+
+	CollectQuotaWithDB(db, user, buffer, plan, nil, err)
+	url, b64Json := getImageDataFromBuffer(buffer)
+	if url == "" && b64Json == "" {
+		sendErrorResponse(c, fmt.Errorf("no image generated"))
+		return
+	}
+
+	c.JSON(http.StatusOK, RelayImageResponse{
+		Created: created,
+		Data:    []RelayImageData{{Url: url, B64Json: b64Json}},
 	})
 }
 

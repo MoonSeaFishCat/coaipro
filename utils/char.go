@@ -168,6 +168,15 @@ func GetBase64ImageMarkdown(b64 string, _desc ...string) string {
 		if len(parts) > 0 {
 			imageType = parts[0]
 		}
+
+		// If it's already a full data URI, return as is (wrapped in markdown)
+		// But first extract the raw base64 to avoid double prefixing if we re-wrap it
+		// Actually, the simplest fix is to check if it's already a full data URI and just use it
+		desc := "image"
+		if len(_desc) > 0 && _desc[0] != "" {
+			desc = _desc[0]
+		}
+		return fmt.Sprintf("![%s](%s)", desc, b64)
 	}
 
 	desc := "image"

@@ -16,7 +16,8 @@
     "processing": "Processing your request...",
     "initializing": "Initializing AI request...",
     "connecting": "Connecting to AI service...",
-    "thinking": "AI is thinking..."
+    "thinking": "AI is thinking...",
+    "searching": "Searching the web..."
   },
   "login-failed": "Login failed",
   "login-failed-prompt": "Login failed! Reason: {{reason}}",

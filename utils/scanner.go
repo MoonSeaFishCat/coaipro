@@ -140,7 +140,7 @@ func processFullSSE(body io.ReadCloser, callback func(string) error) *EventScann
 			eventData = strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 
 			if eventData == "[DONE]" || strings.HasPrefix(eventData, "[DONE]") {
-				continue
+				return nil
 			}
 		}
 	}
@@ -204,7 +204,7 @@ func processLegacySSE(body io.ReadCloser, callback func(string) error) *EventSca
 		chunk := strings.TrimSpace(strings.TrimPrefix(raw, "data:"))
 		if chunk == "[DONE]" || strings.HasPrefix(chunk, "[DONE]") {
 			// for done signal
-			continue
+			return nil
 		}
 
 		// callback chunk

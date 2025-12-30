@@ -248,9 +248,10 @@ export default function DrawingMain({
               className="max-w-full max-h-full object-contain pointer-events-auto select-none"
               style={{ scale }}
               drag
-              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-              dragElastic={0.5}
+              dragConstraints={{ left: -2000, right: 2000, top: -2000, bottom: 2000 }}
+              dragElastic={0.2}
               dragMomentum={false}
+              dragTransition={{ power: 0, timeConstant: 0 }}
               key={`${currentIndex}-${resetKey}`} // 切换图片或点击复原时重置位置
             />
             

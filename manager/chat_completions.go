@@ -94,6 +94,12 @@ func ChatRelayAPI(c *gin.Context) {
 		return
 	}
 
+	// 绘图模型不再通过 /v1/chat/completions 处理，提示改用图片接口
+	if globals.IsOpenAIDalleModel(form.Model) || globals.IsGoogleImagenModel(form.Model) {
+		sendErrorResponse(c, fmt.Errorf("image models must use /v1/images/generations"), "invalid_request_error")
+		return
+	}
+
 	if form.Stream {
 		sendStreamTranshipmentResponse(c, form, messages, id, created, user, plan, usageDetail, thinkState)
 	} else {

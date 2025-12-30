@@ -120,10 +120,6 @@ func mergeExtraBody(body interface{}, extra map[string]interface{}) interface{} 
 
 // CreateChatRequest is the native http request body for openai
 func (c *ChatInstance) CreateChatRequest(props *adaptercommon.ChatProps) (string, error) {
-	if globals.IsOpenAIDalleModel(props.Model) {
-		return c.CreateImage(props)
-	}
-
 	res, err := utils.Post(
 		c.GetChatEndpoint(props),
 		c.GetHeader(),
@@ -153,16 +149,6 @@ func hideRequestId(message string) string {
 
 // CreateStreamChatRequest is the stream response body for openai
 func (c *ChatInstance) CreateStreamChatRequest(props *adaptercommon.ChatProps, callback globals.Hook) error {
-	if globals.IsOpenAIDalleModel(props.Model) {
-		if url, err := c.CreateImage(props); err != nil {
-			return err
-		} else {
-			return callback(&globals.Chunk{
-				Content: url,
-			})
-		}
-	}
-
 	isCompletionType := props.Model == globals.GPT3TurboInstruct
 
 	ticks := 0

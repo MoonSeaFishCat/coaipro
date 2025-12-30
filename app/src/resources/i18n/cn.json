@@ -29,7 +29,8 @@
     "processing": "正在处理您的请求...",
     "initializing": "正在初始化AI请求...",
     "connecting": "正在连接AI服务...",
-    "thinking": "AI正在思考中..."
+    "thinking": "AI正在思考中...",
+    "searching": "正在联网检索..."
   },
   "login-failed": "登录失败",
   "login-failed-prompt": "登录失败！原因: {{reason}}",
