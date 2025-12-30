@@ -249,6 +249,18 @@ func ExtractUrls(data string) []string {
 	return re.FindAllString(data, -1)
 }
 
+func ExtractFiles(data string) (content string, files []string) {
+	// extract files like ` ```file\n[[filename]]\ncontent\n``` `
+	matches := fileBlockRegexp.FindAllStringSubmatch(data, -1)
+	content = RemoveFileMarkup(data)
+
+	for _, match := range matches {
+		files = append(files, match[0])
+	}
+
+	return content, files
+}
+
 func ExtractImages(data string, includeBase64 bool) (content string, images []string) {
 	ext := ExtractExternalImages(data)
 	if includeBase64 {
@@ -261,8 +273,6 @@ func ExtractImages(data string, includeBase64 bool) (content string, images []st
 	for _, image := range images {
 		content = strings.ReplaceAll(content, image, "")
 	}
-
-	content = RemoveFileMarkup(content)
 
 	return content, images
 }

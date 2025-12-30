@@ -10,55 +10,86 @@ import (
 )
 
 func formatMessages(props *adaptercommon.ChatProps) interface{} {
-	if globals.IsVisionModel(props.Model) {
-		return utils.Each[globals.Message, Message](props.Message, func(message globals.Message) Message {
-			if message.Role == globals.User {
-				content, urls := utils.ExtractImages(message.Content, true)
-				images := utils.EachNotNil[string, MessageContent](urls, func(url string) *MessageContent {
+	isVision := globals.IsVisionModel(props.Model)
+
+	return utils.Each[globals.Message, Message](props.Message, func(message globals.Message) Message {
+		if message.Role == globals.User {
+			// 1. 先提取文件块内容
+			content, files := utils.ExtractFiles(message.Content)
+
+			// 2. 再提取图片内容 (非视觉模型不提取 Base64 以免误删内容，但仍提取外部链接)
+			content, urls := utils.ExtractImages(content, isVision)
+
+			// 3. 构建多内容数组
+			var contents MessageContents
+
+			// 注入主文本内容
+			if len(content) > 0 {
+				contents = append(contents, MessageContent{
+					Type: "text",
+					Text: &content,
+				})
+			}
+
+			// 注入提取出来的文件块作为独立文本块
+			for _, file := range files {
+				contents = append(contents, MessageContent{
+					Type: "text",
+					Text: &file,
+				})
+			}
+
+			// 注入图片内容 (仅视觉模型)
+			if isVision {
+				for _, url := range urls {
 					obj, err := utils.NewImage(url)
-					props.Buffer.AddImage(obj)
 					if err != nil {
 						globals.Info(fmt.Sprintf("cannot process image: %s (source: %s)", err.Error(), utils.Extract(url, 24, "...")))
+						continue
 					}
+					props.Buffer.AddImage(obj)
 
-					return &MessageContent{
+					contents = append(contents, MessageContent{
 						Type: "image_url",
 						ImageUrl: &ImageUrl{
 							Url: url,
 						},
-					}
-				})
-
-				return Message{
-					Role: message.Role,
-					Content: utils.Prepend(images, MessageContent{
+					})
+				}
+			} else if len(urls) > 0 {
+				// 非视觉模型，如果存在外部图片链接，将其作为普通文本放回
+				for _, url := range urls {
+					contents = append(contents, MessageContent{
 						Type: "text",
-						Text: &content,
-					}),
-					Name:         message.Name,
-					FunctionCall: message.FunctionCall,
-					ToolCalls:    message.ToolCalls,
-					ToolCallId:   message.ToolCallId,
+						Text: &url,
+					})
 				}
 			}
 
 			return Message{
-				Role: message.Role,
-				Content: MessageContents{
-					MessageContent{
-						Type: "text",
-						Text: &message.Content,
-					},
-				},
+				Role:         message.Role,
+				Content:      contents,
 				Name:         message.Name,
 				FunctionCall: message.FunctionCall,
 				ToolCalls:    message.ToolCalls,
 				ToolCallId:   message.ToolCallId,
 			}
-		})
-	}
+		}
 
-	return props.Message
+		return Message{
+			Role: message.Role,
+			Content: MessageContents{
+				MessageContent{
+					Type: "text",
+					Text: &message.Content,
+				},
+			},
+			Name:         message.Name,
+			FunctionCall: message.FunctionCall,
+			ToolCalls:    message.ToolCalls,
+			ToolCallId:   message.ToolCallId,
+		}
+	})
 }
 
 func processChatResponse(data string) *ChatStreamResponse {
