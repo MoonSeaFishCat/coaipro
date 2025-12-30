@@ -5,6 +5,7 @@ import (
 	"chat/globals"
 	"chat/utils"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -32,17 +33,49 @@ func (c *ChatInstance) CreateImageRequest(props ImageProps) ([]string, []string,
 		props.N = 1
 	}
 
-	res, err := utils.Post(
-		c.GetImageEndpoint(props),
-		c.GetHeader(), ImageRequest{
-			Model:     props.Model,
-			Prompt:    props.Prompt,
-			Image:     props.Image,
-			Size:      props.Size,
-			N:         props.N,
-			Type:      props.Type,
-			Watermark: props.Watermark,
-		}, props.Proxy)
+	var res interface{}
+	var err error
+
+	if props.Image != "" {
+		// Image Edit
+		base64Data := props.Image
+		if index := strings.Index(base64Data, ","); index != -1 {
+			base64Data = base64Data[index+1:]
+		}
+
+		data, err := utils.Base64Decode(base64Data)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		res, err = utils.PostMultipart(
+			c.GetImageEndpoint(props),
+			c.GetHeader(),
+			map[string]string{
+				"model":  props.Model,
+				"prompt": props.Prompt,
+				"size":   string(props.Size),
+				"n":      fmt.Sprintf("%d", props.N),
+			},
+			map[string]io.Reader{
+				"image": strings.NewReader(string(data)),
+			},
+			props.Proxy,
+		)
+	} else {
+		// Image Generation
+		res, err = utils.Post(
+			c.GetImageEndpoint(props),
+			c.GetHeader(), ImageRequest{
+				Model:     props.Model,
+				Prompt:    props.Prompt,
+				Size:      props.Size,
+				N:         props.N,
+				Type:      props.Type,
+				Watermark: props.Watermark,
+			}, props.Proxy)
+	}
+
 	if err != nil || res == nil {
 		return nil, nil, fmt.Errorf(err.Error())
 	}

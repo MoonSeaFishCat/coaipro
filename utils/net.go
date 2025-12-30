@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
@@ -212,6 +213,39 @@ func PostRaw(uri string, headers map[string]string, body interface{}, config ...
 		return "", err
 	}
 	return string(buffer), nil
+}
+
+func PostMultipart(uri string, headers map[string]string, fields map[string]string, files map[string]io.Reader, config ...globals.ProxyConfig) (data interface{}, err error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for key, val := range fields {
+		if err := writer.WriteField(key, val); err != nil {
+			return nil, err
+		}
+	}
+
+	for key, reader := range files {
+		part, err := writer.CreateFormFile(key, key+".png")
+		if err != nil {
+			return nil, err
+		}
+		if _, err := io.Copy(part, reader); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	headers["Content-Type"] = writer.FormDataContentType()
+
+	err = Http(uri, http.MethodPost, &data, headers, body, config)
+	return data, err
 }
 
 func ConvertBody(body interface{}) (form io.Reader) {
