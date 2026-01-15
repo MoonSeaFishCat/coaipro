@@ -18,6 +18,8 @@ import {
   updateEmail,
   updatePassword,
   UserFilterProps,
+  addUser,
+  deleteUser,
 } from "@/admin/api/chart.ts";
 import { useEffectAsync } from "@/utils/hook.ts";
 import {
@@ -54,6 +56,8 @@ import {
   Search,
   Shield,
   ShieldMinus,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input.tsx";
 import PopupDialog, { popupTypes } from "@/components/PopupDialog.tsx";
@@ -79,6 +83,12 @@ import { Badge } from "../ui/badge";
 
 type OperationMenuProps = {
   user: UserData;
+  onRefresh?: () => void;
+};
+
+type AddUserDialogProps = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
   onRefresh?: () => void;
 };
 
@@ -109,6 +119,98 @@ function doToast(t: any, resp: CommonResponse) {
     });
 }
 
+function AddUserDialog({ open, setOpen, onRefresh }: AddUserDialogProps) {
+  const { t } = useTranslation();
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleSubmit = async () => {
+    if (!username.trim() || !password.trim()) {
+      toast.error(t("admin.error"), {
+        description: t("admin.add-user-required"),
+      });
+      return;
+    }
+
+    setLoading(true);
+    const resp = await addUser(username, password, email, isAdmin);
+    setLoading(false);
+    doToast(t, resp);
+
+    if (resp.status) {
+      setOpen(false);
+      setUsername("");
+      setPassword("");
+      setEmail("");
+      setIsAdmin(false);
+      onRefresh?.();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogTitle>{t("admin.add-user")}</DialogTitle>
+        <DialogDescription>{t("admin.add-user-desc")}</DialogDescription>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">{t("admin.username")}</label>
+            <Input
+              placeholder={t("admin.username-placeholder")}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">{t("auth.password")}</label>
+            <Input
+              type="password"
+              placeholder={t("admin.password-placeholder")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">{t("admin.email")}</label>
+            <Input
+              type="email"
+              placeholder={t("admin.email-placeholder")}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="is-admin"
+              checked={isAdmin}
+              onChange={(e) => setIsAdmin(e.target.checked)}
+            />
+            <label htmlFor="is-admin" className="text-sm">
+              {t("admin.set-as-admin")}
+            </label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            {t("cancel")}
+          </Button>
+          <DialogAction onClick={handleSubmit} disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              t("confirm")
+            )}
+          </DialogAction>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OperationMenu({ user, onRefresh }: OperationMenuProps) {
   const { t } = useTranslation();
 
@@ -124,6 +226,7 @@ function OperationMenu({ user, onRefresh }: OperationMenuProps) {
   const [releaseOpen, setReleaseOpen] = useState<boolean>(false);
   const [banOpen, setBanOpen] = useState<boolean>(false);
   const [adminOpen, setAdminOpen] = useState<boolean>(false);
+  const [deleteOpen, setDeleteOpen] = useState<boolean>(false);
 
   return (
     <>
@@ -301,6 +404,22 @@ function OperationMenu({ user, onRefresh }: OperationMenuProps) {
           return resp.status;
         }}
       />
+      <PopupDialog
+        disabled={username === user.username || user.username === "root"}
+        destructive={true}
+        type={popupTypes.Empty}
+        title={t("admin.delete-user")}
+        description={t("admin.delete-user-desc", { username: user.username })}
+        open={deleteOpen}
+        setOpen={setDeleteOpen}
+        onSubmit={async () => {
+          const resp = await deleteUser(user.id);
+          doToast(t, resp);
+
+          if (resp.status) onRefresh?.();
+          return resp.status;
+        }}
+      />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -359,6 +478,13 @@ function OperationMenu({ user, onRefresh }: OperationMenuProps) {
             <CalendarOff className={`h-4 w-4 mr-2`} />
             {t("admin.release-subscription-action")}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => setDeleteOpen(true)}
+            disabled={username === user.username || user.username === "root"}
+          >
+            <Trash2 className={`h-4 w-4 mr-2`} />
+            {t("admin.delete-user")}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>
@@ -374,6 +500,7 @@ function UserTable() {
   const [page, setPage] = useState<number>(0);
   const [search, setSearch] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [addUserOpen, setAddUserOpen] = useState<boolean>(false);
 
   const [filter, filterDispatch] = useReducer(formReducer<UserFilterProps>(), {
     ...initialUserFilter,
@@ -401,6 +528,11 @@ function UserTable() {
 
   return (
     <div className={`user-table`}>
+      <AddUserDialog
+        open={addUserOpen}
+        setOpen={setAddUserOpen}
+        onRefresh={update}
+      />
       <div className={`flex flex-row mb-6`}>
         <Dialog open={filterDialog} onOpenChange={setFilterDialog}>
           <DialogTrigger asChild>
@@ -588,6 +720,10 @@ function UserTable() {
         </div>
       )}
       <div className={`user-action`}>
+        <Button variant={`default`} onClick={() => setAddUserOpen(true)}>
+          <UserPlus className={`h-4 w-4 mr-2`} />
+          {t("admin.add-user")}
+        </Button>
         <div className={`grow`} />
         <Button variant={`outline`} size={`icon`} onClick={update}>
           <RotateCw className={`h-4 w-4`} />

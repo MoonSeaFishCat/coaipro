@@ -16,6 +16,14 @@ func MarketAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, admin.MarketInstance.GetModels())
 }
 
+func DrawingModelsAPI(c *gin.Context) {
+	// Return drawing models info
+	c.JSON(http.StatusOK, gin.H{
+		"dalle_models": globals.OpenAIDalleModels,
+		"imagen_models": globals.GoogleImagenModels,
+	})
+}
+
 func ChargeAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, channel.ChargeInstance.ListRules())
 }

@@ -329,3 +329,31 @@ export async function releaseUsageOperation(
     return { status: false, message: getErrorMessage(e) };
   }
 }
+
+export async function addUser(
+  username: string,
+  password: string,
+  email: string,
+  isAdmin: boolean,
+): Promise<CommonResponse> {
+  try {
+    const response = await axios.post("/admin/user/add", {
+      username,
+      password,
+      email,
+      is_admin: isAdmin,
+    });
+    return response.data as CommonResponse;
+  } catch (e) {
+    return { status: false, message: getErrorMessage(e) };
+  }
+}
+
+export async function deleteUser(id: number): Promise<CommonResponse> {
+  try {
+    const response = await axios.post("/admin/user/delete", { id });
+    return response.data as CommonResponse;
+  } catch (e) {
+    return { status: false, message: getErrorMessage(e) };
+  }
+}

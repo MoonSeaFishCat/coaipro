@@ -28,6 +28,8 @@ func Register(app *gin.RouterGroup) {
 	app.POST("/admin/redeem/delete", DeleteRedeemAPI)
 
 	app.GET("/admin/user/list", UserPaginationAPI)
+	app.POST("/admin/user/add", AddUserAPI)
+	app.POST("/admin/user/delete", DeleteUserAPI)
 	app.POST("/admin/user/quota", UserQuotaAPI)
 	app.POST("/admin/user/subscription", UserSubscriptionAPI)
 	app.POST("/admin/user/level", SubscriptionLevelAPI)
@@ -39,6 +41,7 @@ func Register(app *gin.RouterGroup) {
 	app.POST("/admin/user/root", UpdateRootPasswordAPI)
 
 	app.POST("/admin/market/update", UpdateMarketAPI)
+	app.POST("/admin/market/sync", SyncMarketFromChannelsAPI)
 
 	app.GET("/admin/logger/list", ListLoggerAPI)
 	app.GET("/admin/logger/download", DownloadLoggerAPI)

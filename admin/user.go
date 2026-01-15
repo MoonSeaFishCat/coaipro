@@ -256,3 +256,113 @@ func UpdateRootPassword(db *sql.DB, cache *redis.Client, password string) error 
 
 	return nil
 }
+
+func getMaxBindId(db *sql.DB) int64 {
+	var maxBindId int64
+	if err := globals.QueryRowDb(db, `SELECT COALESCE(MAX(bind_id), 0) FROM auth`).Scan(&maxBindId); err != nil {
+		return 0
+	}
+	return maxBindId
+}
+
+func addUser(db *sql.DB, username, password, email string, isAdmin bool) error {
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	email = strings.TrimSpace(email)
+
+	if len(username) < 3 || len(username) > 20 {
+		return fmt.Errorf("username length must be between 3 and 20")
+	}
+
+	if len(password) < 6 || len(password) > 36 {
+		return fmt.Errorf("password length must be between 6 and 36")
+	}
+
+	if len(email) > 0 && (len(email) < 5 || len(email) > 100) {
+		return fmt.Errorf("email length must be between 5 and 100")
+	}
+
+	// Check if username already exists
+	var count int
+	if err := globals.QueryRowDb(db, `SELECT COUNT(*) FROM auth WHERE username = ?`, username).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("username already exists")
+	}
+
+	// Check if email already exists (if provided)
+	if len(email) > 0 {
+		if err := globals.QueryRowDb(db, `SELECT COUNT(*) FROM auth WHERE email = ?`, email).Scan(&count); err != nil {
+			return err
+		}
+		if count > 0 {
+			return fmt.Errorf("email already exists")
+		}
+	}
+
+	hashPassword := utils.Sha2Encrypt(password)
+	bindId := getMaxBindId(db) + 1
+	token := utils.Sha2Encrypt(email + username)
+
+	_, err := globals.ExecDb(db, `
+		INSERT INTO auth (username, password, email, is_admin, bind_id, token)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, username, hashPassword, email, isAdmin, bindId, token)
+
+	if err != nil {
+		return err
+	}
+
+	// Create initial quota for the new user
+	var userId int64
+	if err := globals.QueryRowDb(db, `SELECT id FROM auth WHERE username = ?`, username).Scan(&userId); err != nil {
+		return err
+	}
+
+	_, err = globals.ExecDb(db, `
+		INSERT INTO quota (user_id, quota, used) VALUES (?, 0, 0)
+	`, userId)
+
+	return err
+}
+
+func deleteUser(db *sql.DB, cache *redis.Client, id int64) error {
+	// Check if user exists
+	var username string
+	if err := globals.QueryRowDb(db, `SELECT username FROM auth WHERE id = ?`, id).Scan(&username); err != nil {
+		return fmt.Errorf("user not found")
+	}
+
+	// Prevent deleting root user
+	if username == "root" {
+		return fmt.Errorf("cannot delete root user")
+	}
+
+	// Delete user's quota
+	if _, err := globals.ExecDb(db, `DELETE FROM quota WHERE user_id = ?`, id); err != nil {
+		return err
+	}
+
+	// Delete user's subscription
+	if _, err := globals.ExecDb(db, `DELETE FROM subscription WHERE user_id = ?`, id); err != nil {
+		return err
+	}
+
+	// Delete user's API keys
+	if _, err := globals.ExecDb(db, `DELETE FROM apikey WHERE user_id = ?`, id); err != nil {
+		return err
+	}
+
+	// Delete user
+	if _, err := globals.ExecDb(db, `DELETE FROM auth WHERE id = ?`, id); err != nil {
+		return err
+	}
+
+	// Clear user cache
+	if err := cache.Del(context.Background(), fmt.Sprintf("nio:user:%s", username)).Err(); err != nil {
+		return fmt.Errorf("failed to clear user cache: %v", err)
+	}
+
+	return nil
+}

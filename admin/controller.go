@@ -2,6 +2,7 @@ package admin
 
 import (
 	"chat/admin/analysis"
+	"chat/channel"
 	"chat/globals"
 	"chat/utils"
 	"net/http"
@@ -71,6 +72,17 @@ type UpdateRootPasswordForm struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type AddUserForm struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"`
+	IsAdmin  bool   `json:"is_admin"`
+}
+
+type DeleteUserForm struct {
+	Id int64 `json:"id" binding:"required"`
+}
+
 func UpdateMarketAPI(c *gin.Context) {
 	var form MarketModelList
 	if err := c.ShouldBindJSON(&form); err != nil {
@@ -92,6 +104,69 @@ func UpdateMarketAPI(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": true,
+	})
+}
+
+type SyncMarketForm struct {
+	Overwrite bool `json:"overwrite"`
+}
+
+func SyncMarketFromChannelsAPI(c *gin.Context) {
+	var form SyncMarketForm
+	if err := c.ShouldBindJSON(&form); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	// Get current channel models
+	channels := channel.ConduitInstance.GetSequence()
+
+	if form.Overwrite {
+		// Clear existing models and sync from channels
+		MarketInstance.Models = MarketModelList{}
+	}
+
+	// Extract models from channels
+	channelModels := make(map[string]bool)
+	for _, ch := range channels {
+		if ch != nil {
+			for _, model := range ch.GetModels() {
+				channelModels[model] = true
+			}
+		}
+	}
+
+	// Add new models from channels
+	existingIds := make(map[string]bool)
+	for _, model := range MarketInstance.Models {
+		existingIds[model.Id] = true
+	}
+
+	for modelId := range channelModels {
+		if !existingIds[modelId] {
+			newModel := MarketModel{
+				Id:   modelId,
+				Name: modelId,
+			}
+			MarketInstance.Models = append(MarketInstance.Models, newModel)
+		}
+	}
+
+	// Save the updated market
+	if err := MarketInstance.SaveConfig(); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": false,
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": true,
+		"data":   MarketInstance.GetModels(),
 	})
 }
 
@@ -462,6 +537,59 @@ func UpdateRootPasswordAPI(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": false,
 			"error":  err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": true,
+	})
+}
+
+func AddUserAPI(c *gin.Context) {
+	db := utils.GetDBFromContext(c)
+
+	var form AddUserForm
+	if err := c.ShouldBindJSON(&form); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	err := addUser(db, form.Username, form.Password, form.Email, form.IsAdmin)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": true,
+	})
+}
+
+func DeleteUserAPI(c *gin.Context) {
+	db := utils.GetDBFromContext(c)
+	cache := utils.GetCacheFromContext(c)
+
+	var form DeleteUserForm
+	if err := c.ShouldBindJSON(&form); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	err := deleteUser(db, cache, form.Id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  false,
+			"message": err.Error(),
 		})
 		return
 	}

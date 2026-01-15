@@ -58,10 +58,6 @@ import { toast } from "sonner";
 const DRAWING_TAG = "image-generation";
 const PLAN_INCLUDED_TAG = "plan-included";
 const HIDDEN_TAGS = ["official", "fast", "unstable", "free"];
-const FIRST_CLASS_MODELS = new Set([
-  "gpt-image-1-vip",
-  "sora_image",
-]);
 export const RATIO_OPTIONS = [
   { label: "方形 (1:1; 1024x1024)", value: "1024x1024" },
   { label: "横屏 (16:9; 1536x1024)", value: "1536x1024" },
@@ -152,6 +148,23 @@ export default function DrawingSidebar({
   const [quantity, setQuantity] = useState<string>(QUANTITY_OPTIONS[0]);
   const [prompt, setPrompt] = useState<string>("");
   const [image, setImage] = useState<string>("");
+  const [dalleModels, setDalleModels] = useState<string[]>([]);
+
+  // Fetch drawing models info on mount
+  useEffect(() => {
+    const fetchDrawingModels = async () => {
+      try {
+        const response = await fetch("/api/v1/drawing/models");
+        if (response.ok) {
+          const data = await response.json();
+          setDalleModels(data.dalle_models || []);
+        }
+      } catch (e) {
+        console.warn("[drawing] failed to fetch drawing models info", e);
+      }
+    };
+    fetchDrawingModels();
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -171,8 +184,11 @@ export default function DrawingSidebar({
   };
 
   const isDalleModel = useMemo(() => {
-    return selectedId === "gpt-image-1-vip" || selectedId === "sora_image";
-  }, [selectedId]);
+    // Check if selected model is in the dalle models list from backend
+    return dalleModels.some(model => 
+      selectedId === model || selectedId.includes(model)
+    );
+  }, [selectedId, dalleModels]);
 
   useEffect(() => {
     if (drawingModels.length === 0) {
@@ -187,7 +203,8 @@ export default function DrawingSidebar({
 
   const selectedModel =
     drawingModels.find((model) => model.id === selectedId) ?? null;
-  const isSupportedModel = FIRST_CLASS_MODELS.has(selectedModel?.id ?? "");
+  // Check if model has image_generation capability from market config
+  const isSupportedModel = selectedModel !== null;
 
   const isPlanIncluded = useMemo(
     () => (modelId: string) =>

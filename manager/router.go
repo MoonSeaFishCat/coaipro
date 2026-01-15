@@ -10,6 +10,7 @@ func Register(app *gin.RouterGroup) {
 	app.GET("/chat", ChatAPI)
 	app.GET("/v1/models", ModelAPI)
 	app.GET("/v1/market", MarketAPI)
+	app.GET("/v1/drawing/models", DrawingModelsAPI)
 	app.GET("/v1/charge", ChargeAPI)
 	app.GET("/v1/plans", PlanAPI)
 	app.GET("/dashboard/billing/usage", GetBillingUsage)
