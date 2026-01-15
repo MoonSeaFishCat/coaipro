@@ -8,14 +8,32 @@ on:
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.20'
   NODE_VERSION: '18'
+  GO_VERSION: '1.20'
   TZ: 'Asia/Shanghai'
 
 jobs:
-  build-frontend:
-    name: Build Frontend
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }} Package
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            runner: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: .exe
+            archive: zip
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            ext: ''
+            archive: tar.gz
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,7 +45,24 @@ jobs:
           cache: 'npm'
           cache-dependency-path: app/package-lock.json
 
-      - name: Install dependencies
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(TZ=Asia/Shanghai date +"%Y%m%d.%H%M%S")
+          BUILD_DATE=$(TZ=Asia/Shanghai date -Iseconds)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+          echo "Build Date: $BUILD_DATE"
+
+      - name: Install frontend dependencies
         working-directory: ./app
         run: npm ci --legacy-peer-deps
 
@@ -35,180 +70,116 @@ jobs:
         working-directory: ./app
         run: npm run build
 
-      - name: Upload frontend artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: app/dist
-          retention-days: 1
-
-  build-backend:
-    name: Build Backend
-    needs: build-frontend
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            output: coai-linux-amd64
-          - goos: linux
-            goarch: arm64
-            output: coai-linux-arm64
-          - goos: windows
-            goarch: amd64
-            output: coai-windows-amd64.exe
-          - goos: darwin
-            goarch: amd64
-            output: coai-darwin-amd64
-          - goos: darwin
-            goarch: arm64
-            output: coai-darwin-arm64
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Download frontend artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: app/dist
-
-      - name: Generate version
-        id: version
-        run: |
-          VERSION=$(TZ=Asia/Shanghai date +"%Y%m%d.%H%M%S")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Install cross-compilation tools
-        run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            sudo apt-get update
-            sudo apt-get install -y gcc-mingw-w64-x86-64
-          fi
-
       - name: Build backend
         env:
+          CGO_ENABLED: 1
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            export CC=x86_64-w64-mingw32-gcc
-          fi
-          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.version }} -X main.BuildDate=$(TZ=Asia/Shanghai date -Iseconds) -X main.GitCommit=${{ github.sha }}" -o ${{ matrix.output }} .
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.version }} -X main.BuildDate=${{ steps.version.outputs.build_date }} -X main.GitCommit=${{ github.sha }}" -o coai${{ matrix.ext }} .
 
-      - name: Create release package
+      - name: Prepare release package
+        shell: bash
         run: |
-          mkdir -p release
-          cp ${{ matrix.output }} release/
-          cp -r app/dist release/dist
-          cp README.md release/ || true
-          cp LICENSE release/ || true
-          echo "${{ steps.version.outputs.version }}" > release/VERSION
-          cd release
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip -r ../coai-${{ matrix.goos }}-${{ matrix.goarch }}-${{ steps.version.outputs.version }}.zip .
+          mkdir -p release/coai
+          cp coai${{ matrix.ext }} release/coai/
+          cp -r app/dist release/coai/app/
+          cp README.md release/coai/ 2>/dev/null || true
+          cp LICENSE release/coai/ 2>/dev/null || true
+          echo "${{ steps.version.outputs.version }}" > release/coai/VERSION
+          
+          # Create start script
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            cat > release/coai/start.bat << 'EOFBAT'
+          @echo off
+          echo Starting CoAI...
+          echo Visit http://localhost:8080 after startup
+          coai.exe
+          EOFBAT
           else
-            tar -czf ../coai-${{ matrix.goos }}-${{ matrix.goarch }}-${{ steps.version.outputs.version }}.tar.gz .
+            cat > release/coai/start.sh << 'EOFSH'
+          #!/bin/bash
+          echo "Starting CoAI..."
+          echo "Visit http://localhost:8080 after startup"
+          ./coai
+          EOFSH
+            chmod +x release/coai/start.sh
+            chmod +x release/coai/coai
           fi
 
-      - name: Upload release artifacts
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          cd release
+          Compress-Archive -Path coai -DestinationPath coai-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.zip
+
+      - name: Create archive (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          cd release
+          tar -czf coai-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz coai
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            coai-${{ matrix.goos }}-${{ matrix.goarch }}-*.tar.gz
-            coai-${{ matrix.goos }}-${{ matrix.goarch }}-*.zip
-          retention-days: 7
+          name: coai-${{ matrix.os }}-${{ matrix.arch }}
+          path: release/coai-${{ steps.version.outputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.${{ matrix.archive }}
+          retention-days: 30
 
-  create-release:
+  release:
     name: Create GitHub Release
-    needs: build-backend
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate version
+      - name: Get version
         id: version
         run: |
           VERSION=$(TZ=Asia/Shanghai date +"%Y%m%d.%H%M%S")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Prepare release files
-        run: |
-          mkdir -p release-files
-          find artifacts -name "*.tar.gz" -exec cp {} release-files/ \;
-          find artifacts -name "*.zip" -exec cp {} release-files/ \;
-          ls -lh release-files/
-
-      - name: Generate release notes
-        run: |
-          cat > release_notes.md << 'EOF'
-          ## 🎉 自动构建版本
-          
-          **构建时间**: $(TZ=Asia/Shanghai date "+%Y-%m-%d %H:%M:%S CST")
-          **提交哈希**: ${{ github.sha }}
-          **分支**: ${{ github.ref_name }}
-          
-          ### ✨ 最新功能
-          - 用户管理：添加和删除用户
-          - 增强的管理面板和用户创建对话框
-          - 改进的用户操作和删除功能
-          
-          ### 🔧 改进
-          - 更好的用户验证和错误处理
-          - 级联删除用户相关数据
-          - 新功能的多语言支持
-          
-          ### 📦 下载
-          根据您的平台选择合适的包：
-          - **Linux AMD64**: `coai-linux-amd64-${{ steps.version.outputs.version }}.tar.gz`
-          - **Linux ARM64**: `coai-linux-arm64-${{ steps.version.outputs.version }}.tar.gz`
-          - **Windows AMD64**: `coai-windows-amd64-${{ steps.version.outputs.version }}.zip`
-          - **macOS AMD64**: `coai-darwin-amd64-${{ steps.version.outputs.version }}.tar.gz`
-          - **macOS ARM64**: `coai-darwin-arm64-${{ steps.version.outputs.version }}.tar.gz`
-          
-          ### 🐳 Docker
-          ```bash
-          docker pull ${{ secrets.DOCKER_USERNAME }}/coai:latest
-          docker pull ${{ secrets.DOCKER_USERNAME }}/coai:${{ steps.version.outputs.version }}
-          ```
-          
-          ### 📝 安装
-          1. 下载适合您平台的包
-          2. 解压缩文件
-          3. 运行可执行文件
-          4. 访问 http://localhost:8080
-          
-          更多信息请查看 [README](https://github.com/${{ github.repository }}/blob/main/README.md)
-          EOF
+      - name: Display structure
+        run: ls -R artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.version }}
-          files: release-files/*
-          body_path: release_notes.md
           draft: false
           prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release summary
+        run: |
+          echo "## 🎉 发布成功" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**版本**: \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**提交**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 发布包" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows (amd64): \`coai-${{ steps.version.outputs.version }}-windows-amd64.zip\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Linux (amd64): \`coai-${{ steps.version.outputs.version }}-linux-amd64.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 使用说明" >> $GITHUB_STEP_SUMMARY
+          echo "1. 下载对应平台的压缩包" >> $GITHUB_STEP_SUMMARY
+          echo "2. 解压到任意目录" >> $GITHUB_STEP_SUMMARY
+          echo "3. 运行 start.bat (Windows) 或 start.sh (Linux)" >> $GITHUB_STEP_SUMMARY
+          echo "4. 访问 http://localhost:8080" >> $GITHUB_STEP_SUMMARY

@@ -8,52 +8,19 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '18'
   TZ: 'Asia/Shanghai'
 
 jobs:
-  build-frontend:
-    name: Build Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: app/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./app
-        run: npm ci --legacy-peer-deps
-
-      - name: Build frontend
-        working-directory: ./app
-        run: npm run build
-
-      - name: Upload frontend artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: app/dist
-          retention-days: 1
-
   build-docker:
     name: Build and Push Docker Image
-    needs: build-frontend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download frontend artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: app/dist
 
       - name: Generate version
         id: version
@@ -71,12 +38,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -88,9 +49,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ secrets.DOCKER_USERNAME }}/coai
-            ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.version.outputs.version }}
@@ -102,6 +61,7 @@ jobs:
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.created=${{ steps.version.outputs.build_date }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -118,16 +78,6 @@ jobs:
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.version.outputs.version }}
 
-      - name: Docker Hub Description
-        uses: peter-evans/dockerhub-description@v3
-        continue-on-error: true
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: ${{ secrets.DOCKER_USERNAME }}/coai
-          short-description: ${{ github.event.repository.description }}
-          readme-filepath: ./README.md
-
       - name: Create deployment summary
         run: |
           echo "## 🐳 Docker 镜像已发布" >> $GITHUB_STEP_SUMMARY
@@ -135,17 +85,22 @@ jobs:
           echo "**版本号**: \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**构建时间**: \`${{ steps.version.outputs.build_date }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**提交哈希**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**分支**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 镜像仓库" >> $GITHUB_STEP_SUMMARY
-          echo "- Docker Hub: \`${{ secrets.DOCKER_USERNAME }}/coai:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Docker Hub (版本): \`${{ secrets.DOCKER_USERNAME }}/coai:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 镜像仓库" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Container Registry: \`ghcr.io/${{ github.repository }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 版本标签: \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 拉取命令" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 拉取命令" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
           echo "# 拉取最新版本" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ secrets.DOCKER_USERNAME }}/coai:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# 拉取指定版本" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ secrets.DOCKER_USERNAME }}/coai:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏃 运行命令" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker run -d -p 8080:8080 ghcr.io/${{ github.repository }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
