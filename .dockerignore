@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Node
+app/node_modules
+app/dist
+app/.env*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Build artifacts
+coai
+coai-*
+
+# Data
+data/
+*.db
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+LICENSE
+docs/
+
+# CI/CD
+.github/

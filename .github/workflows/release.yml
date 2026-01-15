@@ -1,0 +1,214 @@
+name: Build Release Packages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.20'
+  NODE_VERSION: '18'
+  TZ: 'Asia/Shanghai'
+
+jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./app
+        run: npm run build
+
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: app/dist
+          retention-days: 1
+
+  build-backend:
+    name: Build Backend
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            output: coai-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: coai-linux-arm64
+          - goos: windows
+            goarch: amd64
+            output: coai-windows-amd64.exe
+          - goos: darwin
+            goarch: amd64
+            output: coai-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: coai-darwin-arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download frontend artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: app/dist
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION=$(TZ=Asia/Shanghai date +"%Y%m%d.%H%M%S")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Install cross-compilation tools
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            sudo apt-get update
+            sudo apt-get install -y gcc-mingw-w64-x86-64
+          fi
+
+      - name: Build backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            export CC=x86_64-w64-mingw32-gcc
+          fi
+          go build -ldflags="-s -w -X main.Version=${{ steps.version.outputs.version }} -X main.BuildDate=$(TZ=Asia/Shanghai date -Iseconds) -X main.GitCommit=${{ github.sha }}" -o ${{ matrix.output }} .
+
+      - name: Create release package
+        run: |
+          mkdir -p release
+          cp ${{ matrix.output }} release/
+          cp -r app/dist release/dist
+          cp README.md release/ || true
+          cp LICENSE release/ || true
+          echo "${{ steps.version.outputs.version }}" > release/VERSION
+          cd release
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip -r ../coai-${{ matrix.goos }}-${{ matrix.goarch }}-${{ steps.version.outputs.version }}.zip .
+          else
+            tar -czf ../coai-${{ matrix.goos }}-${{ matrix.goarch }}-${{ steps.version.outputs.version }}.tar.gz .
+          fi
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            coai-${{ matrix.goos }}-${{ matrix.goarch }}-*.tar.gz
+            coai-${{ matrix.goos }}-${{ matrix.goarch }}-*.zip
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-backend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION=$(TZ=Asia/Shanghai date +"%Y%m%d.%H%M%S")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find artifacts -name "*.tar.gz" -exec cp {} release-files/ \;
+          find artifacts -name "*.zip" -exec cp {} release-files/ \;
+          ls -lh release-files/
+
+      - name: Generate release notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## 🎉 自动构建版本
+          
+          **构建时间**: $(TZ=Asia/Shanghai date "+%Y-%m-%d %H:%M:%S CST")
+          **提交哈希**: ${{ github.sha }}
+          **分支**: ${{ github.ref_name }}
+          
+          ### ✨ 最新功能
+          - 用户管理：添加和删除用户
+          - 增强的管理面板和用户创建对话框
+          - 改进的用户操作和删除功能
+          
+          ### 🔧 改进
+          - 更好的用户验证和错误处理
+          - 级联删除用户相关数据
+          - 新功能的多语言支持
+          
+          ### 📦 下载
+          根据您的平台选择合适的包：
+          - **Linux AMD64**: `coai-linux-amd64-${{ steps.version.outputs.version }}.tar.gz`
+          - **Linux ARM64**: `coai-linux-arm64-${{ steps.version.outputs.version }}.tar.gz`
+          - **Windows AMD64**: `coai-windows-amd64-${{ steps.version.outputs.version }}.zip`
+          - **macOS AMD64**: `coai-darwin-amd64-${{ steps.version.outputs.version }}.tar.gz`
+          - **macOS ARM64**: `coai-darwin-arm64-${{ steps.version.outputs.version }}.tar.gz`
+          
+          ### 🐳 Docker
+          ```bash
+          docker pull ${{ secrets.DOCKER_USERNAME }}/coai:latest
+          docker pull ${{ secrets.DOCKER_USERNAME }}/coai:${{ steps.version.outputs.version }}
+          ```
+          
+          ### 📝 安装
+          1. 下载适合您平台的包
+          2. 解压缩文件
+          3. 运行可执行文件
+          4. 访问 http://localhost:8080
+          
+          更多信息请查看 [README](https://github.com/${{ github.repository }}/blob/main/README.md)
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.version }}
+          files: release-files/*
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
