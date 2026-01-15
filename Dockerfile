@@ -7,7 +7,7 @@ WORKDIR /app/frontend
 COPY app/package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy frontend source
 COPY app/ ./
@@ -35,7 +35,7 @@ COPY . .
 # Copy built frontend from previous stage
 COPY --from=frontend-builder /app/frontend/dist ./app/dist
 
-# Build arguments
+# Build arguments (declare before use)
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
@@ -69,7 +69,11 @@ EXPOSE 8080
 ENV GIN_MODE=release
 ENV TZ=Asia/Shanghai
 
-# Add labels
+# Add labels (declare ARGs again for this stage)
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.revision="${VCS_REF}"
 LABEL org.opencontainers.image.version="${VERSION}"
