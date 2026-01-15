@@ -185,7 +185,7 @@ export default function DrawingSidebar({
 
   const isDalleModel = useMemo(() => {
     // Check if selected model is in the dalle models list from backend
-    return dalleModels.some(model => 
+    return dalleModels.some((model: string) => 
       selectedId === model || selectedId.includes(model)
     );
   }, [selectedId, dalleModels]);
