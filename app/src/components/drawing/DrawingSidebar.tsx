@@ -204,7 +204,8 @@ export default function DrawingSidebar({
   const selectedModel =
     drawingModels.find((model) => model.id === selectedId) ?? null;
   // Check if model has image_generation capability from market config
-  const isSupportedModel = selectedModel !== null;
+  // For now, all drawing models are considered supported since they're filtered by DRAWING_TAG
+  const isSupportedModel = true;
 
   const isPlanIncluded = useMemo(
     () => (modelId: string) =>
@@ -468,8 +469,8 @@ export default function DrawingSidebar({
         </div>
       )}
 
-      {selectedModel &&
-        (isSupportedModel ? (
+      {selectedModel ? (
+        isSupportedModel ? (
           <div className="drawing-config-card">
             {isDalleModel && (
               <div className="drawing-form-section">
@@ -685,7 +686,8 @@ export default function DrawingSidebar({
             </p>
             <p className="drawing-preview-desc">{t("drawing.previewDesc")}</p>
           </div>
-        ))}
+        )
+      ) : null}
     </motion.div>
   );
 }
