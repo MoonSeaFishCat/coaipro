@@ -25,7 +25,7 @@ fi
 # Build frontend
 echo -e "${YELLOW}Building frontend...${NC}"
 cd app
-npm install
+npm install --legacy-peer-deps
 npm run build
 cd ..
 
